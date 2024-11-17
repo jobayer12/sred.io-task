@@ -6,6 +6,7 @@ import {MatCardModule} from "@angular/material/card";
 import {MatExpansionModule} from "@angular/material/expansion";
 import {MatButtonModule} from "@angular/material/button";
 import {MatIconModule} from "@angular/material/icon";
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 @NgModule({
   declarations: [
@@ -18,6 +19,7 @@ import {MatIconModule} from "@angular/material/icon";
     MatButtonModule,
     MatIconModule,
     IntegrationRoutingModule,
+    MatProgressBarModule
   ]
 })
 export class IntegrationModule { }

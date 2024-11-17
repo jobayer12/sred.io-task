@@ -1,5 +1,5 @@
 export interface IServerResponse<T=any> {
   status: number;
-  msg: string;
+  error: string;
   data: T;
 }

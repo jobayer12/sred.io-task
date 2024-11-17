@@ -3,7 +3,7 @@ import {JwtHelperService} from "@auth0/angular-jwt";
 import {Observable} from "rxjs";
 import {IServerResponse} from "../models/IServerResponse";
 import {HttpClient} from "@angular/common/http";
-import {IAccount} from "../models/IAccount";
+import {IJWTTokenDetails} from "../models/IToken";
 
 @Injectable({
   providedIn: 'root'
@@ -19,15 +19,21 @@ export class AuthService {
   isAuthenticated(): boolean {
     const token = this.getToken();
     if (token) {
-      return !this.jwtHelperService.isTokenExpired(token);
+      try {
+        const decoded = <IJWTTokenDetails>this.jwtHelperService.decodeToken(token);
+        if (!decoded || !decoded.exp || !decoded.id || !decoded.username || Date.now() >= decoded.exp * 1000) return false;
+        return true;
+      } catch (error) {
+        return false;
+      }
     }
     return false;
   }
 
-  decodeToken(): IAccount | null {
+  decodeToken(): IJWTTokenDetails | null {
     const token = this.getToken();
     if (token) {
-      return <IAccount>this.jwtHelperService.decodeToken(token);
+      return <IJWTTokenDetails>this.jwtHelperService.decodeToken(token);
     }
     return null;
   }
@@ -44,7 +50,7 @@ export class AuthService {
     localStorage.removeItem(this.localStorageKey);
   }
 
-  validate(token: string): Observable<IServerResponse<boolean>> {
+  validateGithubToken(token: string): Observable<IServerResponse<boolean>> {
     return this.http.get<IServerResponse<boolean>>(`/api/v1/github/verify/${token}`);
   }
 }

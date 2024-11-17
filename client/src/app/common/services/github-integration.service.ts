@@ -15,7 +15,7 @@ export class GithubIntegrationService {
     window.location.href = 'http://localhost:3000/api/v1/github/auth';
   }
 
-  removeIntegration(): Observable<IServerResponse<IGithubRemove>> {
-    return this.http.delete<IServerResponse<IGithubRemove>>(`/api/v1/github/remove`);
+  removeIntegration(): Observable<IServerResponse<boolean>> {
+    return this.http.delete<IServerResponse<boolean>>(`/api/v1/github/remove`);
   }
 }

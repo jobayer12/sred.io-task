@@ -1,4 +1,4 @@
-export interface IAccount {
+export interface IJWTTokenDetails {
   id: string,
   username: string,
   connectedAt: string,

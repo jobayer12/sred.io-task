@@ -1,7 +1,7 @@
-const axios = require('axios');
 const Integration = require('../models/Integration');
 const {generateToken} = require("../helpers/jwt");
 const jwt = require("../helpers/jwt");
+const githubService = require("../services/githubService");
 
 // Redirect User to GitHub for Authentication
 exports.githubAuth = (req, res) => {
@@ -14,38 +14,27 @@ exports.githubAuth = (req, res) => {
 exports.githubCallback = async (req, res) => {
     const { code } = req.query;
     try {
-        const response = await axios.post('https://github.com/login/oauth/access_token', {
-            client_id: process.env.GITHUB_CLIENT_ID,
-            client_secret: process.env.GITHUB_CLIENT_SECRET,
-            code,
-        }, { headers: { Accept: 'application/json' } });
-
-        const { access_token } = response.data;
+        // get access token
+        const accessToken = await githubService.githubAccessToken(code);
 
         // Fetch User Info
-        const userResponse = await axios.get('https://api.github.com/user', {
-            headers: { Authorization: `Bearer ${access_token}` },
-        });
+        const userResponse = await githubService.githubUserInfomation(accessToken);
 
         const username = userResponse.data['login'];
         const userData = {
             user: userResponse.data,
             username: username,
-            token: access_token,
+            token: accessToken,
             connectedAt: new Date(),
         };
 
-        const integration = await Integration.findOneAndUpdate(
-            { username }, // Query to check if the username exists
-            userData,    // Data to update or insert
-            { upsert: true, new: true } // Options: create if not found, return the updated document
-        );
-        console.log(integration);
+        const integration = await githubService.findOneAndUpdate(userData);
         const tokenInfo = {
             id: integration._id,
             username: username,
             connectedAt: userData.connectedAt
         }
+        // generate jwt token
         const jwtToken = await generateToken(tokenInfo);
         res.redirect(`${process.env.CLIENT_URI}/integrations/github?token=${jwtToken}`);
     } catch (error) {
@@ -55,33 +44,36 @@ exports.githubCallback = async (req, res) => {
 
 // Remove GitHub Integration
 exports.removeIntegration = async (req, res) => {
-    const response = {status: 200, data: {success: false}, error: ""};
+    const response = {status: 200, data: false, error: ""};
     try {
         const id = req.loggedInUserInfo.id;
-        console.log(req.loggedInUserInfo);
-        await Integration.deleteOne({ _id: id });
-        response.data.success = true;
-        res.status(response.status).json(response);
+        const result = await Integration.deleteOne({ _id: id });
+        
+        response.data = result.deletedCount > 0;
+        res.status(200).json(response);
     } catch (error) {
         response.status = 500;
         response.error = error.message;
-        res.status(response.status).json(response);
+        res.status(500).json(response);
     }
 };
 
-// Verify GitHub Integration JWT Token
+// Verify JWT Token
 exports.verifyToken = async (req, res) => {
     const response = {status: 200, data: false, error: ""};
     try {
         const token = req.params.token;
         const verifyToken = await jwt.verifyToken(token);
         if (verifyToken) {
-            response.data = true;
+            const userDetails = await githubService.findOneById(verifyToken.id);
+            if (userDetails) {
+                response.data = true;
+            }
         }
         res.status(response.status).json(response);
     } catch (error) {
         response.status = 500;
         response.error = error.message;
-        res.status(response.status).json(response);
+        res.status(500).json(response);
     }
 }

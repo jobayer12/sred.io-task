@@ -1,4 +1,5 @@
 <div class="github-integration-container">
+  <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
   <div *ngIf="!isAuthenticated" class="github-integration-not-auth-container">
     <mat-card>
       <mat-expansion-panel expanded>
@@ -26,11 +27,10 @@
           <mat-panel-title>
             <div class="github-expansion-header-container">
               <div class="github-expansion-header-left">
-                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo"
-                     width="20" style="margin-right: 10px;">
+                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo">
                 GitHub
-                <mat-icon color="primary">check_circle</mat-icon>
-                <mat-icon color="primary">history</mat-icon>
+                <mat-icon [ngStyle]="{'color':'#4CAF50'}">check_circle</mat-icon>
+                <mat-icon color="black">history</mat-icon>
               </div>
               <div class="github-expansion-header-right">
                 <div>
@@ -45,7 +45,7 @@
         </mat-expansion-panel-header>
 
         <div class="expansion-content-container">
-          <button mat-raised-button color="primary" (click)="removeIntegration()">
+          <button mat-raised-button [disabled]="isLoading" color="primary" (click)="removeIntegration()">
             Remove
             <mat-icon iconPositionEnd>delete</mat-icon>
           </button>
