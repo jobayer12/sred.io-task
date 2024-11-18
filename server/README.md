@@ -1,1 +1,0 @@
-# sred.io-task

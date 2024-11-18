@@ -5,10 +5,10 @@ div {
     display: flex;
     align-items: start;
     justify-content: center;
-    margin-top: 20px auto;
     div {
       &.github-integration-not-auth-container {
         mat-card {
+          margin-top: 10px;
           width: 400px;
           mat-expansion-panel {
             background: #f9f9f9;
@@ -30,7 +30,9 @@ div {
         }
       }
       &.github-integration-auth-container {
+        height: 50px;
         mat-card {
+          margin-top: 10px;
           width: 800px;
           mat-expansion-panel {
             div {
@@ -61,7 +63,15 @@ div {
                 display: flex;
                 align-items: center;
                 justify-content: end;
-                padding: 20px;
+                button {
+                  svg {
+                    margin-left: 5px;
+                  }
+                  ::ng-deep .mdc-button__label {
+                    display: flex;
+                    align-items: center;
+                  }
+                }
               }
             }
           }
