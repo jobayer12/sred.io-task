@@ -1,5 +1,5 @@
 import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { GithubIntegrationComponent } from './components/github-integration/github-integration.component';
 import {IntegrationRoutingModule} from "./integration-routing.module";
 import {MatCardModule} from "@angular/material/card";
@@ -20,6 +20,9 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
     MatIconModule,
     IntegrationRoutingModule,
     MatProgressBarModule
+  ],
+  providers: [
+    DatePipe
   ]
 })
 export class IntegrationModule { }

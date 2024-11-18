@@ -10,18 +10,16 @@ exports.jwtVerification = async (req, res, next) => {
             }
         } else {
             return res.status(404).json({
-                statusCode: 404,
-                errors:{
-                    message: 'Invalid Auth token',
-                },
+                status: 404,
+                error: 'Invalid Auth token',
+                data: null
             })
         }
     } catch (e) {
         return res.status(404).json({
-            statusCode: 404,
-            errors:{
-                message: e.message,
-            },
+            status: 404,
+            error: e.message,
+            data: null
         })
     }
 }

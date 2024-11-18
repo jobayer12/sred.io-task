@@ -4,6 +4,7 @@ import {GithubIntegrationService} from '../../../../common/services/github-integ
 import {IJWTTokenDetails} from '../../../../common/models/IToken';
 import {ActivatedRoute, Router} from '@angular/router';
 import {ToastrService} from 'ngx-toastr';
+import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-github-integration',
@@ -14,17 +15,19 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
   isAuthenticated: boolean = false;
   accountDetails: IJWTTokenDetails | null = null;
   isLoading: boolean = false;
+  formatDate!: string | null;
 
   constructor(private route: ActivatedRoute,
               private readonly authService: AuthService,
               private readonly router: Router,
               private readonly githubIntegrationService: GithubIntegrationService,
-              private readonly toastrService: ToastrService,) {}
+              private readonly toastrService: ToastrService,
+              private readonly datepipe: DatePipe,
+            ) {}
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      this.isAuthenticated = true;
-      this.accountDetails = this.authService.decodeToken();
+      this.retriveTokenDetails();
     }
     // Check if redirected from GitHub with an access token
     this.route.queryParams.subscribe((params) => {
@@ -47,9 +50,8 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.authService.validateGithubToken(token).subscribe(response => {
       if (response.data) {
-        this.isAuthenticated = true;
         this.authService.saveToken(token);
-        this.accountDetails = this.authService.decodeToken();
+        this.retriveTokenDetails();
       } else {
         this.authService.removeToken();
       }
@@ -58,6 +60,12 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.toastrService.error(error.error.error ?? 'Invalid token');
     });
+  }
+
+  retriveTokenDetails(): void {
+    this.isAuthenticated = true;
+    this.accountDetails = this.authService.decodeToken();
+    this.formatDate = this.datepipe.transform(this.accountDetails?.connectedAt, 'yyyy-MM-dd h:mm a');
   }
 
   ngOnDestroy(): void {
