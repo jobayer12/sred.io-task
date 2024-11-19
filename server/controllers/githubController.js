@@ -7,7 +7,7 @@ const githubService = require("../services/githubService");
 exports.githubAuth = (req, res) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
     const redirectUri = process.env.GITHUB_REDIRECT_URI;
-    res.redirect(`https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=read:user,user:email`);
+    res.redirect(`https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=read:user,user:email,repo,read:org`);
 };
 
 // Handle Callback and Fetch Token
@@ -46,7 +46,7 @@ exports.githubCallback = async (req, res) => {
 exports.removeIntegration = async (req, res) => {
     const response = {status: 200, data: false, error: ""};
     try {
-        const id = req.loggedInUserInfo.id;
+        const id = req.user.id;
         const result = await Integration.deleteOne({ _id: id });
         
         response.data = result.deletedCount > 0;
@@ -71,6 +71,61 @@ exports.verifyToken = async (req, res) => {
             }
         }
         res.status(response.status).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+exports.fetchRepositories = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    try {
+        const id = req.user.id;
+        const integration = await githubService.findOneById(id);
+        if (!integration) {
+            response.error = "Not Found.";
+            return res.status(500).json(response);
+        };
+        const accessToken = integration.token;
+        const organizations = await githubService.fetchOrganizations(accessToken);
+        if (organizations && organizations.length > 0) {
+            const repositories = [];
+            for (const org of organizations) {
+                const response = await githubService.fetchRepos(org.login, accessToken);
+                repositories.push(...response.map(repo => {
+                    return {
+                        id: repo.id,
+                        name: repo.name,
+                        link: repo.html_url,
+                        slug: repo.full_name
+                    }
+                }));
+            }
+            response.data = repositories;
+        }
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+exports.fetchContributor = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    try {
+        const { repo } = req.body;
+        const id = req.user.id;
+        const integration = await githubService.findOneById(id);
+        if (!integration) {
+            response.error = "Not Found.";
+            return res.status(500).json(response);
+        };
+        const accessToken = integration.token;
+        const result = await githubService.fetchContributor(repo, accessToken);
+        response.data = result;
+        res.status(200).json(response);
     } catch (error) {
         response.status = 500;
         response.error = error.message;
