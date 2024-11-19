@@ -7,6 +7,7 @@ import {MatExpansionModule} from "@angular/material/expansion";
 import {MatButtonModule} from "@angular/material/button";
 import {MatIconModule} from "@angular/material/icon";
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import { AgGridModule } from 'ag-grid-angular';
 
 @NgModule({
   declarations: [
@@ -18,6 +19,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
     MatExpansionModule,
     MatButtonModule,
     MatIconModule,
+    AgGridModule,
     IntegrationRoutingModule,
     MatProgressBarModule
   ],

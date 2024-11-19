@@ -5,7 +5,7 @@ exports.jwtVerification = async (req, res, next) => {
             const token = req.headers.authorization.split(' ').reverse()[0];
             const verifyToken = await jwt.verifyToken(token)
             if (verifyToken.id) {
-                req.loggedInUserInfo = verifyToken;
+                req.user = verifyToken;
                 next();
             }
         } else {
