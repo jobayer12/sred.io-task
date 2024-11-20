@@ -2,6 +2,7 @@ const Integration = require('../models/Integration');
 const {generateToken} = require("../helpers/jwt");
 const jwt = require("../helpers/jwt");
 const githubService = require("../services/githubService");
+const githubApi = require("../helpers/githubApi");
 
 // Redirect User to GitHub for Authentication
 exports.githubAuth = (req, res) => {
@@ -15,10 +16,10 @@ exports.githubCallback = async (req, res) => {
     const { code } = req.query;
     try {
         // get access token
-        const accessToken = await githubService.githubAccessToken(code);
+        const accessToken = await githubApi.githubAccessToken(code);
 
         // Fetch User Info
-        const userResponse = await githubService.githubUserInfomation(accessToken);
+        const userResponse = await githubApi.githubUserInfomation(accessToken);
 
         const username = userResponse.data['login'];
         const userData = {
@@ -34,6 +35,19 @@ exports.githubCallback = async (req, res) => {
             username: username,
             connectedAt: userData.connectedAt
         }
+
+        if (integration) {
+           try {
+            const organizations = await githubApi.fetchOrganizations(accessToken, integration._id).catch(error => console.log('failed to fetch organization'));
+            if (organizations && Array.isArray(organizations) && organizations.length > 0) {
+                const oragnizationList = await githubService.fetchOrganizationsByIntegrationId(integration._id);
+                await githubApi.fetchRepositories(accessToken, integration._id, oragnizationList).catch(error => console.log('failed to fetch repositories'));
+            }
+           } catch (error) {
+            console.error('error: ', error);
+           }
+        }
+
         // generate jwt token
         const jwtToken = await generateToken(tokenInfo);
         res.redirect(`${process.env.CLIENT_URI}/integrations/github?token=${jwtToken}`);
@@ -87,23 +101,8 @@ exports.fetchRepositories = async (req, res) => {
             response.error = "Not Found.";
             return res.status(500).json(response);
         };
-        const accessToken = integration.token;
-        const organizations = await githubService.fetchOrganizations(accessToken);
-        if (organizations && organizations.length > 0) {
-            const repositories = [];
-            for (const org of organizations) {
-                const response = await githubService.fetchRepos(org.login, accessToken);
-                repositories.push(...response.map(repo => {
-                    return {
-                        id: repo.id,
-                        name: repo.name,
-                        link: repo.html_url,
-                        slug: repo.full_name
-                    }
-                }));
-            }
-            response.data = repositories;
-        }
+        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id);
+        response.data = results;     
         res.status(200).json(response);
     } catch (error) {
         response.status = 500;
@@ -115,16 +114,28 @@ exports.fetchRepositories = async (req, res) => {
 exports.fetchContributor = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
-        const { repo } = req.body;
+        const {repositoryId} = req.body;
+        const repository = await githubService.findRepositoryById(repositoryId);
+        if (!repository) {
+            response.error = "Invalid repositoryId.";
+            return res.status(500).json(response);
+        }
+
         const id = req.user.id;
         const integration = await githubService.findOneById(id);
         if (!integration) {
-            response.error = "Not Found.";
+            response.error = "No github integration account Found.";
             return res.status(500).json(response);
         };
         const accessToken = integration.token;
-        const result = await githubService.fetchContributor(repo, accessToken);
-        response.data = result;
+
+        const repositoryDetailList = await githubService.findRepositoryDetailList(repository._id);
+        if (repositoryDetailList && Array.isArray(repositoryDetailList) && repositoryDetailList.length > 0) {
+            githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken).catch(error => console.error(error));
+            response.data = repositoryDetailList;
+        } else {
+            response.data = await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
+        }
         res.status(200).json(response);
     } catch (error) {
         response.status = 500;

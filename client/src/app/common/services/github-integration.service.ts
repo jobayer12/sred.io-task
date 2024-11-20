@@ -25,9 +25,9 @@ export class GithubIntegrationService {
     return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`);
   }
 
-  contributors(repo: string): Observable<IServerResponse<Array<IGithubContributor>>> {
+  contributors(repositoryId: string): Observable<IServerResponse<Array<IGithubContributor>>> {
     return this.http.post<IServerResponse<Array<IGithubContributor>>>(`/api/v1/github/contributor`, {
-      repo
+      repositoryId: repositoryId
     });
   }
 
