@@ -158,27 +158,27 @@ exports.fetchContributor = async (slug, integrationId, repositoryId, accessToken
     try {
         let page = 1;
         while (true) {
-            const results = await axios.get(`https://api.github.com/repos/${slug}/contributors`, {
+            const results = await axios.get(`https://api.github.com/repos/${slug}/commits`, {
               headers,
               params: { per_page: 100, page },
             });
       
-            const contributors = results.data;
-            contributors.forEach(contributor => {
-                const username = contributor.login;
+            const commits = results.data;
+            commits.filter(commit => commit && commit.author && commit.author.login).forEach(commit => {
+                const username = commit.author.login;
                 if (usersMap[username]) {
-                    usersMap[username]['totalCommits'] = contributor.contributions;
+                    usersMap[username]['totalCommits']++;
                   } else {
                     usersMap[username] = {
-                        userId: contributor.id,
-                        totalCommits: contributor.contributions,
+                        userId: commit.author.id,
+                        totalCommits: 1,
                         totalPullRequests: 0,
                         totalIssues: 0
                     };
                   }
             });
             // Exit loop if no more data
-            if (contributors.length === 0) break;
+            if (commits.length === 0) break;
             page++;
           }
     } catch (error) {

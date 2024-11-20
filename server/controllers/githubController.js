@@ -29,7 +29,7 @@ exports.githubCallback = async (req, res) => {
             connectedAt: new Date(),
         };
 
-        const integration = await githubService.findOneAndUpdate(userData);
+        const integration = await githubService.integrationFindOneAndUpdate(userData);
         const tokenInfo = {
             id: integration._id,
             username: username,
@@ -79,7 +79,7 @@ exports.verifyToken = async (req, res) => {
         const token = req.params.token;
         const verifyToken = await jwt.verifyToken(token);
         if (verifyToken) {
-            const userDetails = await githubService.findOneById(verifyToken.id);
+            const userDetails = await githubService.integrationFindOneById(verifyToken.id);
             if (userDetails) {
                 response.data = true;
             }
