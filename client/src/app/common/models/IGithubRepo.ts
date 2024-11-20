@@ -1,5 +1,6 @@
 export interface IGithubRepo {
-    id: number,
+    _id: string;
+    repoId: number,
     name: string,
     link: string,
     slug: string
