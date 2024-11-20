@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const RepositorySchema = new mongoose.Schema({
     repoId: { type: String, unique: true },
@@ -18,4 +18,4 @@ const RepositorySchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('github-repository', RepositorySchema);
+export default mongoose.model('github-repository', RepositorySchema);

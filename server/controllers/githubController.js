@@ -1,18 +1,18 @@
-const Integration = require('../models/Integration');
-const {generateToken} = require("../helpers/jwt");
-const jwt = require("../helpers/jwt");
-const githubService = require("../services/githubService");
-const githubApi = require("../helpers/githubApi");
+import Integration from '../models/Integration.js';
+import { generateToken } from '../helpers/jwt.js';
+import * as jwt from '../helpers/jwt.js';  // If you need to access multiple functions from this file
+import * as githubService from '../services/githubService.js';
+import * as githubApi from '../helpers/githubApi.js';
 
 // Redirect User to GitHub for Authentication
-exports.githubAuth = (req, res) => {
+export const githubAuth = (req, res) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
     const redirectUri = process.env.GITHUB_REDIRECT_URI;
     res.redirect(`https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=read:user,user:email,repo,read:org`);
 };
 
 // Handle Callback and Fetch Token
-exports.githubCallback = async (req, res) => {
+export const githubCallback = async (req, res) => {
     const { code } = req.query;
     try {
         // get access token
@@ -21,15 +21,15 @@ exports.githubCallback = async (req, res) => {
         // Fetch User Info
         const userResponse = await githubApi.githubUserInfomation(accessToken);
 
-        const username = userResponse.data['login'];
+        const username = userResponse['login'];
         const userData = {
-            user: userResponse.data,
+            user: userResponse,
             username: username,
             token: accessToken,
             connectedAt: new Date(),
         };
 
-        const integration = await githubService.integrationFindOneAndUpdate(userData);
+        const integration = await githubService.processIntegrations(userData);
         const tokenInfo = {
             id: integration._id,
             username: username,
@@ -57,12 +57,11 @@ exports.githubCallback = async (req, res) => {
 };
 
 // Remove GitHub Integration
-exports.removeIntegration = async (req, res) => {
+export const removeIntegration = async (req, res) => {
     const response = {status: 200, data: false, error: ""};
     try {
         const id = req.user.id;
         const result = await Integration.deleteOne({ _id: id });
-        
         response.data = result.deletedCount > 0;
         res.status(200).json(response);
     } catch (error) {
@@ -73,7 +72,7 @@ exports.removeIntegration = async (req, res) => {
 };
 
 // Verify JWT Token
-exports.verifyToken = async (req, res) => {
+export const verifyToken = async (req, res) => {
     const response = {status: 200, data: false, error: ""};
     try {
         const token = req.params.token;
@@ -92,11 +91,11 @@ exports.verifyToken = async (req, res) => {
     }
 }
 
-exports.fetchRepositories = async (req, res) => {
+export const fetchRepositories = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
         const id = req.user.id;
-        const integration = await githubService.findOneById(id);
+        const integration = await githubService.integrationFindOneById(id);
         if (!integration) {
             response.error = "Not Found.";
             return res.status(500).json(response);
@@ -111,7 +110,7 @@ exports.fetchRepositories = async (req, res) => {
     }
 }
 
-exports.fetchContributor = async (req, res) => {
+export const fetchContributor = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
         const {repositoryId} = req.body;
@@ -122,7 +121,7 @@ exports.fetchContributor = async (req, res) => {
         }
 
         const id = req.user.id;
-        const integration = await githubService.findOneById(id);
+        const integration = await githubService.integrationFindOneById(id);
         if (!integration) {
             response.error = "No github integration account Found.";
             return res.status(500).json(response);

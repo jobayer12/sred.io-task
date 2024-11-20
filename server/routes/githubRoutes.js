@@ -1,13 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { githubAuth, githubCallback, removeIntegration, verifyToken, fetchRepositories, fetchContributor } from '../controllers/githubController.js';
+import { jwtVerification } from '../helpers/middleware.js';
+
 const router = express.Router();
-const githubController = require('../controllers/githubController');
-const {jwtVerification} = require("../helpers/middleware");
 
-router.get('/auth', githubController.githubAuth);
-router.get('/callback', githubController.githubCallback);
-router.delete('/remove', jwtVerification, githubController.removeIntegration);
-router.get('/verify/:token', githubController.verifyToken);
-router.get('/repos', jwtVerification,githubController.fetchRepositories);
-router.post('/contributor', jwtVerification, githubController.fetchContributor);
+// Routes
+router.get('/auth', githubAuth);
+router.get('/callback', githubCallback);
+router.delete('/remove', jwtVerification, removeIntegration);
+router.get('/verify/:token', verifyToken);
+router.get('/repos', jwtVerification, fetchRepositories);
+router.post('/contributor', jwtVerification, fetchContributor);
 
-module.exports = router;
+export default router;

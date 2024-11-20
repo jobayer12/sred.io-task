@@ -1,5 +1,6 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
 
 const IntegrationSchema = new Schema({
     user: Object,
@@ -18,4 +19,5 @@ const IntegrationSchema = new Schema({
     },
 });
 
-module.exports = mongoose.model('github-integration', IntegrationSchema);
+// Export the model
+export default mongoose.model('github-integration', IntegrationSchema);

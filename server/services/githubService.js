@@ -1,10 +1,10 @@
-const Integration = require('../models/Integration');
-const Organization = require('../models/Organization');
-const mongoose = require('mongoose');
-const Repository = require('../models/Repository');
-const RepositoryDetails = require('../models/RepositoryDetails');
+import Integration from '../models/Integration.js';
+import Organization from '../models/Organization.js';
+import mongoose from 'mongoose';
+import Repository from '../models/Repository.js';
+import RepositoryDetails from '../models/RepositoryDetails.js';
 
-exports.integrationFindOneAndUpdate = async data => {
+export const processIntegrations = async data => {
     return Integration.findOneAndUpdate(
         { username: data.username }, // Query to check if the username exists
         data,    // Data to update or insert
@@ -12,29 +12,94 @@ exports.integrationFindOneAndUpdate = async data => {
     );
 }
 
-exports.integrationFindOneById = async id => {
+export const integrationFindOneById = async id => {
     return Integration.findOne({_id: id});
 }
 
-exports.fetchOrganizationsByIntegrationId = async integrationId => {
+export const fetchOrganizationsByIntegrationId = async integrationId => {
     const objectId = new mongoose.Types.ObjectId(integrationId);
     // Fetch organizations filtered by integrationId
     return Organization.find({ integrationId: objectId });
 }
 
-exports.fetchRepositoriesByIntegrationId = async (integrationId ) => {
+export const fetchRepositoriesByIntegrationId = async (integrationId ) => {
   const integrationObjectId = new mongoose.Types.ObjectId(integrationId);
-  // Fetch Repositories filtered by integrationId
   return Repository.find({ integrationId: integrationObjectId });
 }
 
-exports.findRepositoryById = async _id => {
-  // Fetch Repositories filtered by _id
+export const findRepositoryById = async _id => {
   return Repository.findOne({_id});
 }
 
-exports.findRepositoryDetailList = async repositoryId => {
+export const findRepositoryDetailList = async repositoryId => {
   const repositoryIdObjectId = new mongoose.Types.ObjectId(repositoryId);
-  // Fetch RepositoryDetails filtered by repositoryId
   return RepositoryDetails.find({repositoryId: repositoryIdObjectId});
 }
+
+export const processOrganizations = async (organizations, integrationId) => {
+  try {
+      await Promise.all(organizations.map(async (org) => {
+          const { id: orgId, login: name } = org;
+          // Remove unnecessary fields before saving
+          delete org.id;
+          delete org.login;
+
+          // Update or insert the organization into the database
+          await Organization.findOneAndUpdate(
+              { orgId },
+              {
+                  orgId,
+                  name,
+                  integrationId,
+                  org,
+              },
+              { upsert: true, new: true }
+          );
+      }));
+  } catch (error) {
+      console.error('Error processing organizations:', error);
+  }
+};
+
+export const processRepositories = async (repositories, orgId, integrationId) => {
+  try {
+      // Use Promise.all to handle DB updates in parallel
+      await Promise.all(repositories.map(async (repo) => {
+          const repoId = repo.id;
+          const name = repo.name;
+
+          // Remove unwanted fields from the repository data
+          const { id, name: repoName, ...repoData } = repo;
+
+          // Insert/update repository data in the database
+          return Repository.findOneAndUpdate(
+              { name }, // Find by name (repository name)
+              {
+                  repoId,
+                  name,
+                  link: repo.html_url,
+                  slug: repo.full_name,
+                  integrationId,
+                  organizationId: orgId,
+                  repo: repoData, // Store the repository data
+              },
+              { upsert: true, new: true } // Upsert if not found, return the updated document
+          );
+      }));
+  } catch (error) {
+      console.error('Error processing repositories:', error);
+  }
+};
+
+// New function to handle the database update for RepositoryDetails
+export const processRepositoryDetails = async (user, integrationId, repositoryId) => {
+  try {
+      await RepositoryDetails.findOneAndUpdate(
+          { userId: user.userId, repositoryId },
+          { repositoryId, integrationId, ...user },
+          { upsert: true, new: true }
+      );
+  } catch (error) {
+      console.error('Error processing repository details for user:', user.userId, error);
+  }
+};
