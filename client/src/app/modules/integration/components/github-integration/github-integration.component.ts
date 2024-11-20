@@ -288,4 +288,9 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
   connectToGitHub(): void {
     this.githubIntegrationService.githubAuth();
   }
+
+  exportDataAsCsv(): void {
+    if (!this.gridApi) return;
+    this.gridApi.exportDataAsCsv();
+  }
 }

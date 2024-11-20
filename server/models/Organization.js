@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const OrganizationSchema = new mongoose.Schema({
     orgId: { type: Number, unique: true },
@@ -11,4 +11,4 @@ const OrganizationSchema = new mongoose.Schema({
     org: Object,
 });
 
-module.exports = mongoose.model('github-organization', OrganizationSchema);
+export default mongoose.model('github-organization', OrganizationSchema);

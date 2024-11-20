@@ -1,5 +1,5 @@
-const jwt = require('./jwt');
-exports.jwtVerification = async (req, res, next) => {
+import * as jwt from '../helpers/jwt.js';
+export const jwtVerification = async (req, res, next) => {
     try {
         if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
             const token = req.headers.authorization.split(' ').reverse()[0];

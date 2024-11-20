@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const RepositoryDetailSchema = new mongoose.Schema({
     repositoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'github-repository'},
@@ -18,4 +18,4 @@ const RepositoryDetailSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('github-repository-detail', RepositoryDetailSchema);
+export default mongoose.model('github-repository-detail', RepositoryDetailSchema);
