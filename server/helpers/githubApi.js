@@ -14,17 +14,35 @@ export const githubAccessToken = async (code) => {
     return access_token;
 }
 
-export const githubUserInfomation = async (accessToken) => {
-    const octokit = new Octokit({ auth: accessToken });
-    // Fetch the authenticated user's information
-    const { data } = await octokit.rest.users.getAuthenticated();
-    return data; // Contains the user's GitHub information
+export const githubUserInfomation = async accessToken => {
+    try {
+        const octokit = new Octokit({ auth: accessToken });
+        // Fetch the authenticated user's information
+        const { data } = await octokit.rest.users.getAuthenticated();
+        return data; // Contains the user's GitHub information
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
 }
 
 export const fetchOrganizations = async (accessToken, integrationId) => {
     const octokit = new Octokit({ auth: accessToken });
     let organizationList = [];
     let page = 1;
+
+    const statuses = await githubService.getFetchStatuses({
+        objectId: integrationId,
+        type: 'ORGANIZATION',
+        status: 'STARTED'
+    });
+    if (statuses.length > 0) {
+        return;
+    }
+    await githubService.createFetchStatus({
+        objectId: integrationId,
+        type: 'ORGANIZATION',
+    });
 
     try {
         while (true) {
@@ -50,12 +68,13 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
             page++;
         }
 
-        return organizationList; // Return the final list of organizations if needed
-
     } catch (error) {
         console.error('Error fetching organizations:', error);
-        return []; // Return an empty list if an error occurs
     }
+
+    await githubService.updateFetchStatus(integrationId, 'ORGANIZATION', 'STARTED');
+    return organizationList;
+
 };
 
 
@@ -64,6 +83,19 @@ export const fetchRepositories = async (accessToken, integrationId, organization
     let repoList = [];
 
     for (const org of organizations) {
+        const statuses = await githubService.getFetchStatuses({
+            objectId: org._id,
+            type: 'REPOSITORY',
+            status: 'STARTED'
+        });
+        if (statuses.length > 0) {
+            continue;
+        }
+        await githubService.createFetchStatus({
+            objectId: org._id,
+            type: 'REPOSITORY',
+            status: 'STARTED'
+        });
         try {
             let page = 1;
             let repositories;
@@ -89,136 +121,158 @@ export const fetchRepositories = async (accessToken, integrationId, organization
         } catch (error) {
             console.error(`Error fetching repositories for organization ${org.name}:`, error);
         }
+        await githubService.updateFetchStatus(org._id, 'REPOSITORY', 'STARTED');
     }
 
     return repoList; // Return the list of repositories after processing all organizations
 };
 
-export const fetchContributor = async (slug, integrationId, repositoryId, accessToken) => {
-    const octokit = new Octokit({ auth: accessToken });
-    const usersMap = {};
-
+export const repoistoryActivity = async (slug, integrationId, repositoryId, accessToken) => {
     try {
+        const organization = slug.split('/')[0]; // extract owner
+        const repo = slug.split('/')[1]; // extract repository
         // Fetch pull requests, commits, and issues concurrently to reduce delays
         await Promise.all([
-            fetchPullRequests(octokit, slug, usersMap),
-            fetchCommits(octokit, slug, usersMap),
-            fetchIssues(octokit, slug, usersMap),
+            fetchPullRequests(accessToken, organization, repo, integrationId, repositoryId),
+            fetchCommits(accessToken, organization, repo, integrationId, repositoryId),
+            fetchIssues(accessToken, organization, repo, integrationId, repositoryId),
         ]);
     } catch (error) {
         console.error('Error fetching data from GitHub:', error);
     }
-
-    // Convert usersMap to an array of user details
-    const usersWithOtherDetails = Object.keys(usersMap).map(user => ({
-        user: user,
-        ...usersMap[user],
-    }));
-
-    // Update repository details in parallel using Promise.all
-    if (usersWithOtherDetails.length > 0) {
-        try {
-            await Promise.all(
-                usersWithOtherDetails.map((user) =>
-                    githubService.processRepositoryDetails(user, integrationId, repositoryId)
-                )
-            );
-        } catch (error) {
-            console.error('Error updating repository details:', error);
-        }
-    }
-
-    return githubService.findRepositoryDetailList(repositoryId);
+    
+    return githubService.findRepositoryActivies(repositoryId);
 };
 
 // Fetch pull requests for a given repository and update usersMap
-const fetchPullRequests = async (octokit, slug, usersMap) => {
+const fetchPullRequests = async (accessToken, organization, repo, integrationId, repositoryId) => {
+    const octokit = new Octokit({ auth: accessToken });
     let page = 1;
+    const statuses = await githubService.getFetchStatuses({
+        objectId: repositoryId,
+        type: 'PULL_REQUESTS',
+        status: 'STARTED'
+    });
+    if (statuses.length > 0) {
+        return;
+    }
+    await githubService.createFetchStatus({
+        objectId: repositoryId,
+        type: 'PULL_REQUESTS',
+        status: 'STARTED'
+    });
     try {
         while (true) {
-            const { data } = await octokit.rest.pulls.list({
-                owner: slug.split('/')[0], // Extract owner from slug
-                repo: slug.split('/')[1],  // Extract repo from slug
-                state: 'open',
+            const { data: pullRequests, headers } = await octokit.rest.pulls.list({
+                owner: organization,
+                repo,
                 per_page: 100,
                 page,
             });
-
-            if (data.length === 0) break; // Exit if no more pull requests
-            data.forEach((pr) => updateUserMap(usersMap, pr.user, 'pullRequests'));
-
+            if (pullRequests.length === 0) break; // Exit if no more pullRequests
+            
+            await githubService.processPullRequests(pullRequests, integrationId, repositoryId);
+            
+            // Check rate limit status to avoid hitting the limit
+            if (isRateLimited(headers)) {
+                console.log('Rate limit hit, waiting...');
+                // await waitForRateLimit(headers);
+                break;
+            }
             page++;
         }
     } catch (error) {
-        console.error(`Error fetching pull requests for ${slug}:`, error);
+        console.error(`Error fetching commits for ${organization}/${repo}:`, error);
     }
+    await githubService.updateFetchStatus(repositoryId, 'PULL_REQUESTS', 'STARTED');
+
 };
 
 // Fetch commits for a given repository and update usersMap
-const fetchCommits = async (octokit, slug, usersMap) => {
+export const fetchCommits = async (accessToken, organization, repo, integrationId, repositoryId) => {
+    const octokit = new Octokit({ auth: accessToken });
     let page = 1;
     try {
+        const statuses = await githubService.getFetchStatuses({
+            objectId: repositoryId,
+            type: 'COMMIT',
+            status: 'STARTED'
+        });
+        if (statuses.length > 0) {
+            return;
+        }
+        await githubService.createFetchStatus({
+            objectId: repositoryId,
+            type: 'COMMIT',
+            status: 'STARTED'
+        });
+
         while (true) {
-            const { data } = await octokit.rest.repos.listCommits({
-                owner: slug.split('/')[0], // Extract owner from slug
-                repo: slug.split('/')[1],  // Extract repo from slug
+            const { data: commits, headers } = await octokit.rest.repos.listCommits({
+                owner: organization,
+                repo, 
                 per_page: 100,
                 page,
             });
-
-            if (data.length === 0) break; // Exit if no more commits
-            data.forEach((commit) => {
-                if (commit.author && commit.author.login) {
-                    updateUserMap(usersMap, commit.author, 'commits');
-                }
-            });
-
+            if (commits.length === 0) break; // Exit if no more commits
+            
+            await githubService.processCommits(commits, integrationId, repositoryId);
+            
+            // Check rate limit status to avoid hitting the limit
+            if (isRateLimited(headers)) {
+                console.log('Rate limit hit, waiting...');
+                break;
+                // await waitForRateLimit(headers);
+            }
             page++;
         }
     } catch (error) {
-        console.error(`Error fetching commits for ${slug}:`, error);
+        console.error(`Error fetching commits for ${organization}/${repo}:`, error);
     }
+    await githubService.updateFetchStatus(repositoryId, 'COMMIT', 'STARTED');
+
+
 };
 
 // Fetch issues for a given repository and update usersMap
-const fetchIssues = async (octokit, slug, usersMap) => {
+const fetchIssues = async (accessToken, organization, repo, integrationId, repositoryId) => {
+    const octokit = new Octokit({ auth: accessToken });
     let page = 1;
     try {
+        const statuses = await githubService.getFetchStatuses({
+            objectId: repositoryId,
+            type: 'ISSUE',
+            status: 'STARTED'
+        });
+        if (statuses.length > 0) {
+            return;
+        }
+        await githubService.createFetchStatus({
+            objectId: repositoryId,
+            type: 'ISSUE',
+            status: 'STARTED'
+        });
         while (true) {
-            const { data } = await octokit.rest.issues.listForRepo({
-                owner: slug.split('/')[0], // Extract owner from slug
-                repo: slug.split('/')[1],  // Extract repo from slug
+            const { data: issues, headers } = await octokit.rest.issues.listForRepo({
+                owner: organization,
+                repo,
                 per_page: 100,
                 page,
             });
-
-            if (data.length === 0) break; // Exit if no more issues
-            data.forEach((issue) => updateUserMap(usersMap, issue.user, 'issues'));
-
+            if (issues.length === 0) break; // Exit if no more issue
+            
+            await githubService.processIssues(issues, integrationId, repositoryId);
+            
+            // Check rate limit status to avoid hitting the limit
+            if (isRateLimited(headers)) {
+                console.log('Rate limit hit, waiting...');
+                break;
+                // await waitForRateLimit(headers);
+            }
             page++;
         }
     } catch (error) {
-        console.error(`Error fetching issues for ${slug}:`, error);
+        await githubService.updateFetchStatus(repositoryId, 'ISSUE', 'STARTED');
     }
-};
-
-// Helper function to update the user statistics in usersMap
-const updateUserMap = (usersMap, user, type) => {
-    const username = user.login;
-    if (!usersMap[username]) {
-        usersMap[username] = {
-            userId: user.id,
-            totalCommits: 0,
-            totalPullRequests: 0,
-            totalIssues: 0,
-        };
-    }
-
-    if (type === 'commits') {
-        usersMap[username].totalCommits++;
-    } else if (type === 'pullRequests') {
-        usersMap[username].totalPullRequests++;
-    } else if (type === 'issues') {
-        usersMap[username].totalIssues++;
-    }
+    await githubService.updateFetchStatus(repositoryId, 'ISSUE', 'STARTED');
 };
