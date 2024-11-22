@@ -275,7 +275,7 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
   fetchSelectedRepoDetails(): void {
     const selectedData: Array<IGithubRepo> =  this.gridApi.getSelectedRows();
     this.isLoading = true;
-    this.githubIntegrationService.contributors(selectedData[0]._id).subscribe(response => {
+    this.githubIntegrationService.repositoryActivities(selectedData[0]._id).subscribe(response => {
       this.isLoading = false;
       this.contributors = response.data;
       this.contributorGridApi.setRowData(this.contributors);

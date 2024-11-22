@@ -40,8 +40,8 @@ export const githubCallback = async (req, res) => {
            try {
             const organizations = await githubApi.fetchOrganizations(accessToken, integration._id).catch(error => console.log('failed to fetch organization'));
             if (organizations && Array.isArray(organizations) && organizations.length > 0) {
-                const oragnizationList = await githubService.fetchOrganizationsByIntegrationId(integration._id);
-                await githubApi.fetchRepositories(accessToken, integration._id, oragnizationList).catch(error => console.log('failed to fetch repositories'));
+                const organizationList = await githubService.fetchOrganizationsByIntegrationId(integration._id);
+                await githubApi.fetchRepositories(accessToken, integration._id, organizationList).catch(error => console.log('failed to fetch repositories'));
             }
            } catch (error) {
             console.error('error: ', error);
@@ -101,7 +101,20 @@ export const fetchRepositories = async (req, res) => {
             return res.status(500).json(response);
         };
         const results = await githubService.fetchRepositoriesByIntegrationId(integration._id);
-        response.data = results;     
+        response.data = results;
+
+        /**
+         * @todo
+         * need to discuss about auto sync
+         * githubApi.fetchOrganizations(integration.token, integration._id).then(response => {
+            githubService.fetchOrganizationsByIntegrationId(integration._id).then(organizationList => {
+                githubApi.fetchRepositories(integration.token, integration._id, organizationList).catch(error => console.log('failed to fetch repositories from github api.'));
+            }).catch(error => {
+                console.log('error: ', error);
+            });
+        });
+         */
+
         res.status(200).json(response);
     } catch (error) {
         response.status = 500;
@@ -110,7 +123,50 @@ export const fetchRepositories = async (req, res) => {
     }
 }
 
-export const fetchContributor = async (req, res) => {
+export const fetchRepositoryActivity = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    const { repositoryId } = req.body; // Get repositoryId from query parameters
+
+    if (!repositoryId) {
+        response.error = 'repositoryId is required';
+        return res.status(400).json(response);
+    }
+    const filter = {
+        id: repositoryId
+    }
+    try {
+        const results = await githubService.fetchRepositories(filter);
+        if (results.length === 0) {
+            response.error = 'Invalid repository id';
+            return res.status(400).json(response);
+        }
+
+        const integration = await githubService.integrationFindOneById(req.user.id);
+        if (!integration) {
+            response.error = 'Invalid integration.';
+            return res.status(400).json(response);
+        }
+
+        const repositoryActivity = await githubService.findRepositoryActivies(repositoryId);
+        const result = results.pop();
+        if (repositoryActivity.length === 0) {
+            response.data = await githubApi.repoistoryActivity(result.slug, integration._id, repositoryId, integration.token);
+        } else {
+            response.data = repositoryActivity;
+        }
+        if (result) {
+            githubApi.repoistoryActivity(result.slug, integration._id, repositoryId, integration.token).catch(error => console.log(error));
+        }
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+/**
+ * export const fetchContributor = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
         const {repositoryId} = req.body;
@@ -127,14 +183,15 @@ export const fetchContributor = async (req, res) => {
             return res.status(500).json(response);
         };
         const accessToken = integration.token;
-
-        const repositoryDetailList = await githubService.findRepositoryDetailList(repository._id);
-        if (repositoryDetailList && Array.isArray(repositoryDetailList) && repositoryDetailList.length > 0) {
-            githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken).catch(error => console.error(error));
-            response.data = repositoryDetailList;
-        } else {
-            response.data = await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
-        }
+        await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
+        response.data = []; 
+        // const repositoryDetailList = await githubService.findRepositoryDetailList(repository._id);
+        // if (repositoryDetailList && Array.isArray(repositoryDetailList) && repositoryDetailList.length > 0) {
+        //     githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken).catch(error => console.error(error));
+        //     response.data = repositoryDetailList;
+        // } else {
+        //     response.data = await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
+        // }
         res.status(200).json(response);
     } catch (error) {
         response.status = 500;
@@ -142,3 +199,4 @@ export const fetchContributor = async (req, res) => {
         res.status(500).json(response);
     }
 }
+ */
