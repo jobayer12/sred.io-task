@@ -21,7 +21,7 @@ export const githubUserInfomation = async accessToken => {
         const { data } = await octokit.rest.users.getAuthenticated();
         return data; // Contains the user's GitHub information
     } catch (error) {
-        console.error(error);
+        console.error('Failed to load github user information due to: ', error);
         return null;
     }
 }
@@ -30,19 +30,6 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
     const octokit = new Octokit({ auth: accessToken });
     let organizationList = [];
     let page = 1;
-
-    const statuses = await githubService.getFetchStatuses({
-        objectId: integrationId,
-        type: 'ORGANIZATION',
-        status: 'STARTED'
-    });
-    if (statuses.length > 0) {
-        return;
-    }
-    await githubService.createFetchStatus({
-        objectId: integrationId,
-        type: 'ORGANIZATION',
-    });
 
     try {
         while (true) {
@@ -62,7 +49,8 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
             // Check rate limit status to avoid hitting the limit
             if (isRateLimited(headers)) {
                 console.log('Rate limit hit, waiting...');
-                await waitForRateLimit(headers);
+                // await waitForRateLimit(headers);
+                break;
             }
 
             page++;
@@ -71,10 +59,7 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
     } catch (error) {
         console.error('Error fetching organizations:', error);
     }
-
-    await githubService.updateFetchStatus(integrationId, 'ORGANIZATION', 'STARTED');
     return organizationList;
-
 };
 
 
@@ -83,26 +68,13 @@ export const fetchRepositories = async (accessToken, integrationId, organization
     let repoList = [];
 
     for (const org of organizations) {
-        const statuses = await githubService.getFetchStatuses({
-            objectId: org._id,
-            type: 'REPOSITORY',
-            status: 'STARTED'
-        });
-        if (statuses.length > 0) {
-            continue;
-        }
-        await githubService.createFetchStatus({
-            objectId: org._id,
-            type: 'REPOSITORY',
-            status: 'STARTED'
-        });
         try {
             let page = 1;
             let repositories;
 
             // Fetch repositories with pagination
             while (true) {
-                const { data } = await octokit.rest.repos.listForOrg({
+                const { data, headers } = await octokit.rest.repos.listForOrg({
                     org: org.name, // Organization name
                     per_page: 100,
                     page: page, // Pagination
@@ -116,12 +88,20 @@ export const fetchRepositories = async (accessToken, integrationId, organization
 
                 // Process repositories in parallel for DB updates
                 await githubService.processRepositories(repositories, org._id, integrationId);
+
+                // Check rate limit status to avoid hitting the limit
+                if (isRateLimited(headers)) {
+                    console.log('Rate limit hit, waiting...');
+                    // await waitForRateLimit(headers);
+                    break;
+                }
+
                 page++; // Increment page for pagination
             }
         } catch (error) {
             console.error(`Error fetching repositories for organization ${org.name}:`, error);
         }
-        await githubService.updateFetchStatus(org._id, 'REPOSITORY', 'STARTED');
+        
     }
 
     return repoList; // Return the list of repositories after processing all organizations
@@ -148,19 +128,6 @@ export const repoistoryActivity = async (slug, integrationId, repositoryId, acce
 const fetchPullRequests = async (accessToken, organization, repo, integrationId, repositoryId) => {
     const octokit = new Octokit({ auth: accessToken });
     let page = 1;
-    const statuses = await githubService.getFetchStatuses({
-        objectId: repositoryId,
-        type: 'PULL_REQUESTS',
-        status: 'STARTED'
-    });
-    if (statuses.length > 0) {
-        return;
-    }
-    await githubService.createFetchStatus({
-        objectId: repositoryId,
-        type: 'PULL_REQUESTS',
-        status: 'STARTED'
-    });
     try {
         while (true) {
             const { data: pullRequests, headers } = await octokit.rest.pulls.list({
@@ -184,7 +151,7 @@ const fetchPullRequests = async (accessToken, organization, repo, integrationId,
     } catch (error) {
         console.error(`Error fetching commits for ${organization}/${repo}:`, error);
     }
-    await githubService.updateFetchStatus(repositoryId, 'PULL_REQUESTS', 'STARTED');
+    
 
 };
 
@@ -193,20 +160,6 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
     const octokit = new Octokit({ auth: accessToken });
     let page = 1;
     try {
-        const statuses = await githubService.getFetchStatuses({
-            objectId: repositoryId,
-            type: 'COMMIT',
-            status: 'STARTED'
-        });
-        if (statuses.length > 0) {
-            return;
-        }
-        await githubService.createFetchStatus({
-            objectId: repositoryId,
-            type: 'COMMIT',
-            status: 'STARTED'
-        });
-
         while (true) {
             const { data: commits, headers } = await octokit.rest.repos.listCommits({
                 owner: organization,
@@ -229,9 +182,6 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
     } catch (error) {
         console.error(`Error fetching commits for ${organization}/${repo}:`, error);
     }
-    await githubService.updateFetchStatus(repositoryId, 'COMMIT', 'STARTED');
-
-
 };
 
 // Fetch issues for a given repository and update usersMap
@@ -239,19 +189,6 @@ const fetchIssues = async (accessToken, organization, repo, integrationId, repos
     const octokit = new Octokit({ auth: accessToken });
     let page = 1;
     try {
-        const statuses = await githubService.getFetchStatuses({
-            objectId: repositoryId,
-            type: 'ISSUE',
-            status: 'STARTED'
-        });
-        if (statuses.length > 0) {
-            return;
-        }
-        await githubService.createFetchStatus({
-            objectId: repositoryId,
-            type: 'ISSUE',
-            status: 'STARTED'
-        });
         while (true) {
             const { data: issues, headers } = await octokit.rest.issues.listForRepo({
                 owner: organization,
@@ -272,7 +209,7 @@ const fetchIssues = async (accessToken, organization, repo, integrationId, repos
             page++;
         }
     } catch (error) {
-        await githubService.updateFetchStatus(repositoryId, 'ISSUE', 'STARTED');
+        
     }
-    await githubService.updateFetchStatus(repositoryId, 'ISSUE', 'STARTED');
+    
 };

@@ -154,9 +154,6 @@ export const fetchRepositoryActivity = async (req, res) => {
         } else {
             response.data = repositoryActivity;
         }
-        if (result) {
-            githubApi.repoistoryActivity(result.slug, integration._id, repositoryId, integration.token).catch(error => console.log(error));
-        }
         res.status(200).json(response);
     } catch (error) {
         response.status = 500;
