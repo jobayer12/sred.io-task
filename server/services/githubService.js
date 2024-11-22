@@ -4,7 +4,6 @@ import Repository from '../models/Repository.js';
 import Commit from '../models/Commit.js';
 import PullRequest from '../models/PullRequest.js';
 import Issue from '../models/Issue.js';
-import FetchStatus from '../models/FetchStatus.js';
 import { MongooseObjectId } from '../helpers/utils.js';
 
 export const processIntegrations = async data => {
@@ -17,6 +16,10 @@ export const processIntegrations = async data => {
 
 export const integrationFindOneById = async id => {
     return Integration.findOne({_id: id});
+}
+
+export const fetchIntegrationList = async () => {
+    return await Integration.find();
 }
 
 export const fetchRepositories = async (filter = {}) => {
@@ -264,64 +267,5 @@ export const processIssues = async (issues, integrationId, repositoryId) => {
         );
     } catch (error) {
         console.error('Error processing issues:', error);
-    }
-};
-
-export const processGithubFetchStatus = async (fetchStatus, objectId, type) => {
-    try {
-        await FetchStatus.create()
-    } catch (error) {
-        
-    }
-}
-
-// Function to create or insert a new status
-export const createFetchStatus = async (data) => {
-    try {
-        const fetchStatus = new FetchStatus(data);
-        const result = await fetchStatus.save();
-        return result;
-    } catch (error) {
-        console.error('Error creating fetch status:', error);
-        return null;
-    }
-};
-
-// Function to fetch all records or by a specific filter
-export const getFetchStatuses = async (filter = {}) => {
-    try {
-        const fetchStatuses = await FetchStatus.find(filter);
-        return fetchStatuses;
-    } catch (error) {
-        console.error('Error fetching statuses:', error);
-        return null;
-    }
-};
-
-// Function to update a status by `objectId`
-export const updateFetchStatus = async (objectId, type, status) => {
-    try {
-        const updatedStatus = await FetchStatus.findOneAndUpdate(
-            { objectId, type, status }, // Filter by `objectId`
-            {
-                status: 'COMPLETED'
-            },   // Data to update
-            { new: true } // Return the updated document
-        );
-        return updatedStatus;
-    } catch (error) {
-        console.error('Error updating fetch status:', error);
-        return null;
-    }
-};
-
-// Function to delete a status by `objectId`
-export const deleteFetchStatus = async (objectId, type) => {
-    try {
-        const result = await FetchStatus.deleteOne({ objectId, type });
-        return true;
-    } catch (error) {
-        console.error('Error deleting fetch status:', error);
-        return false;
     }
 };

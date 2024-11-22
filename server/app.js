@@ -3,8 +3,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import cron from 'node-cron';
+import * as githubCorn from './node-corn/run-github-corn.js';
 
 // Routes
 import githubRoutes from './routes/githubRoutes.js';
@@ -25,12 +25,19 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Determine __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Serve Frontend
-app.use('/', express.static(path.join(__dirname, 'frontend')));
+try {
+    cron.schedule('0 * * * *', () => {
+        console.log(`Corn Job run at: , ${new Date().toLocaleString()}`);
+        githubCorn.RunGithubCorn().catch(error => {
+            console.log('failed to load integration list due to: ', error);
+        });
+    }, {
+        scheduled: true,
+        timezone: 'America/New_York'
+    })
+} catch (error) {
+    
+}
 
 // API Routes
 app.use('/api/v1/github', githubRoutes);
