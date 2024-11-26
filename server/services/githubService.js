@@ -125,7 +125,7 @@ export const findRepositoryActivies = async repositoryId => {
         const pullRequests = await findPullRequests({repositoryId});
         // Aggregate pull requests by user
         pullRequests.forEach(pr => {
-            const username = pr.user?.login || 'Unknown';
+            const username = pr.pull.user?.login || 'Unknown';
             if (!repositoryActivityMap[username]) {
                 repositoryActivityMap[username] = { userId: pr.pull.user?.id || null, user: username, totalCommits: 0, totalPullRequests: 0, totalIssues: 0 };
             }
