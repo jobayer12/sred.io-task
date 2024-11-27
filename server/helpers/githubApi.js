@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Octokit } from '@octokit/rest';
-import { isRateLimited, waitForRateLimit } from '../helpers/githubRateLimiting.js';
+import { createOctokitInstance } from './octokitClient.js';
 import * as githubService from '../services/githubService.js';
 
 export const githubAccessToken = async (code) => {
@@ -16,7 +16,7 @@ export const githubAccessToken = async (code) => {
 
 export const githubUserInfomation = async accessToken => {
     try {
-        const octokit = new Octokit({ auth: accessToken });
+        const octokit = createOctokitInstance(accessToken);
         // Fetch the authenticated user's information
         const { data } = await octokit.rest.users.getAuthenticated();
         return data; // Contains the user's GitHub information
@@ -34,7 +34,7 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
     try {
         while (true) {
             // Fetch organizations with pagination support
-            const { data: organizations, headers } = await octokit.rest.orgs.listForAuthenticatedUser({
+            const { data: organizations } = await octokit.rest.orgs.listForAuthenticatedUser({
                 per_page: 100,
                 page,
             });
@@ -45,14 +45,6 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
 
             // Process each organization in parallel, but ensure we limit concurrency for database operations
             await githubService.processOrganizations(organizations, integrationId);
-
-            // Check rate limit status to avoid hitting the limit
-            if (isRateLimited(headers)) {
-                console.log('Rate limit hit, waiting...');
-                // await waitForRateLimit(headers);
-                break;
-            }
-
             page++;
         }
 
@@ -64,23 +56,21 @@ export const fetchOrganizations = async (accessToken, integrationId) => {
 
 
 export const fetchRepositories = async (accessToken, integrationId, organizations) => {
-    const octokit = new Octokit({ auth: accessToken }); // Initialize Octokit with the access token
+    const octokit = createOctokitInstance(accessToken); // Initialize Octokit with the access token
     let repoList = [];
 
     for (const org of organizations) {
         try {
             let page = 1;
-            let repositories;
 
             // Fetch repositories with pagination
             while (true) {
-                const { data, headers } = await octokit.rest.repos.listForOrg({
+                const { data: repositories } = await octokit.rest.repos.listForOrg({
                     org: org.name, // Organization name
                     per_page: 100,
                     page: page, // Pagination
                 });
 
-                repositories = data;
                 if (repositories.length === 0) break; // Exit loop when no more repositories
 
                 // Add fetched repositories to the list
@@ -89,19 +79,11 @@ export const fetchRepositories = async (accessToken, integrationId, organization
                 // Process repositories in parallel for DB updates
                 await githubService.processRepositories(repositories, org._id, integrationId);
 
-                // Check rate limit status to avoid hitting the limit
-                if (isRateLimited(headers)) {
-                    console.log('Rate limit hit, waiting...');
-                    // await waitForRateLimit(headers);
-                    break;
-                }
-
                 page++; // Increment page for pagination
             }
         } catch (error) {
             console.error(`Error fetching repositories for organization ${org.name}:`, error);
         }
-        
     }
 
     return repoList; // Return the list of repositories after processing all organizations
@@ -126,11 +108,11 @@ export const repoistoryActivity = async (slug, integrationId, repositoryId, acce
 
 // Fetch pull requests for a given repository and update usersMap
 const fetchPullRequests = async (accessToken, organization, repo, integrationId, repositoryId) => {
-    const octokit = new Octokit({ auth: accessToken });
+    const octokit = createOctokitInstance(accessToken);
     let page = 1;
     try {
         while (true) {
-            const { data: pullRequests, headers } = await octokit.rest.pulls.list({
+            const { data: pullRequests } = await octokit.rest.pulls.list({
                 owner: organization,
                 repo,
                 per_page: 100,
@@ -140,12 +122,6 @@ const fetchPullRequests = async (accessToken, organization, repo, integrationId,
             
             await githubService.processPullRequests(pullRequests, integrationId, repositoryId);
             
-            // Check rate limit status to avoid hitting the limit
-            if (isRateLimited(headers)) {
-                console.log('Rate limit hit, waiting...');
-                // await waitForRateLimit(headers);
-                break;
-            }
             page++;
         }
     } catch (error) {
@@ -157,11 +133,11 @@ const fetchPullRequests = async (accessToken, organization, repo, integrationId,
 
 // Fetch commits for a given repository and update usersMap
 export const fetchCommits = async (accessToken, organization, repo, integrationId, repositoryId) => {
-    const octokit = new Octokit({ auth: accessToken });
+    const octokit = createOctokitInstance(accessToken);
     let page = 1;
     try {
         while (true) {
-            const { data: commits, headers } = await octokit.rest.repos.listCommits({
+            const { data: commits } = await octokit.rest.repos.listCommits({
                 owner: organization,
                 repo, 
                 per_page: 100,
@@ -171,12 +147,6 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
             
             await githubService.processCommits(commits, integrationId, repositoryId);
             
-            // Check rate limit status to avoid hitting the limit
-            if (isRateLimited(headers)) {
-                console.log('Rate limit hit, waiting...');
-                break;
-                // await waitForRateLimit(headers);
-            }
             page++;
         }
     } catch (error) {
@@ -186,11 +156,11 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
 
 // Fetch issues for a given repository and update usersMap
 const fetchIssues = async (accessToken, organization, repo, integrationId, repositoryId) => {
-    const octokit = new Octokit({ auth: accessToken });
+    const octokit = createOctokitInstance(accessToken);
     let page = 1;
     try {
         while (true) {
-            const { data: issues, headers } = await octokit.rest.issues.listForRepo({
+            const { data: issues } = await octokit.rest.issues.listForRepo({
                 owner: organization,
                 repo,
                 per_page: 100,
@@ -199,17 +169,10 @@ const fetchIssues = async (accessToken, organization, repo, integrationId, repos
             if (issues.length === 0) break; // Exit if no more issue
             
             await githubService.processIssues(issues, integrationId, repositoryId);
-            
-            // Check rate limit status to avoid hitting the limit
-            if (isRateLimited(headers)) {
-                console.log('Rate limit hit, waiting...');
-                break;
-                // await waitForRateLimit(headers);
-            }
             page++;
         }
     } catch (error) {
-        
+        console.log('error: ', error);
     }
     
 };
