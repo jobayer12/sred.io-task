@@ -97,23 +97,11 @@ export const fetchRepositories = async (req, res) => {
         const id = req.user.id;
         const integration = await githubService.integrationFindOneById(id);
         if (!integration) {
-            response.error = "Not Found.";
+            response.error = `User doesn't exists.`;
             return res.status(500).json(response);
         };
         const results = await githubService.fetchRepositoriesByIntegrationId(integration._id);
         response.data = results;
-
-        /**
-         * @todo
-         * need to discuss about auto sync
-         * githubApi.fetchOrganizations(integration.token, integration._id).then(response => {
-            githubService.fetchOrganizationsByIntegrationId(integration._id).then(organizationList => {
-                githubApi.fetchRepositories(integration.token, integration._id, organizationList).catch(error => console.log('failed to fetch repositories from github api.'));
-            }).catch(error => {
-                console.log('error: ', error);
-            });
-        });
-         */
 
         res.status(200).json(response);
     } catch (error) {
@@ -135,22 +123,21 @@ export const fetchRepositoryActivity = async (req, res) => {
         id: repositoryId
     }
     try {
-        const results = await githubService.fetchRepositories(filter);
-        if (results.length === 0) {
+        const repositoryList = await githubService.fetchRepositories(filter);
+        if (repositoryList.length === 0) {
             response.error = 'Invalid repository id';
             return res.status(400).json(response);
         }
-
+        const repository = repositoryList.pop()
         const integration = await githubService.integrationFindOneById(req.user.id);
         if (!integration) {
-            response.error = 'Invalid integration.';
+            response.error = `User doesn't exists.`;
             return res.status(400).json(response);
         }
 
         const repositoryActivity = await githubService.findRepositoryActivies(repositoryId);
-        const result = results.pop();
         if (repositoryActivity.length === 0) {
-            response.data = await githubApi.repoistoryActivity(result.slug, integration._id, repositoryId, integration.token);
+            response.data = await githubApi.repoistoryActivity(repository.slug, integration._id, repositoryId, integration.token);
         } else {
             response.data = repositoryActivity;
         }
@@ -161,39 +148,3 @@ export const fetchRepositoryActivity = async (req, res) => {
         res.status(500).json(response);
     }
 }
-
-/**
- * export const fetchContributor = async (req, res) => {
-    const response = { status: 200, data: [], error: "" };
-    try {
-        const {repositoryId} = req.body;
-        const repository = await githubService.findRepositoryById(repositoryId);
-        if (!repository) {
-            response.error = "Invalid repositoryId.";
-            return res.status(500).json(response);
-        }
-
-        const id = req.user.id;
-        const integration = await githubService.integrationFindOneById(id);
-        if (!integration) {
-            response.error = "No github integration account Found.";
-            return res.status(500).json(response);
-        };
-        const accessToken = integration.token;
-        await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
-        response.data = []; 
-        // const repositoryDetailList = await githubService.findRepositoryDetailList(repository._id);
-        // if (repositoryDetailList && Array.isArray(repositoryDetailList) && repositoryDetailList.length > 0) {
-        //     githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken).catch(error => console.error(error));
-        //     response.data = repositoryDetailList;
-        // } else {
-        //     response.data = await githubApi.fetchContributor(repository.slug, integration._id, repository._id, accessToken);
-        // }
-        res.status(200).json(response);
-    } catch (error) {
-        response.status = 500;
-        response.error = error.message;
-        res.status(500).json(response);
-    }
-}
- */
