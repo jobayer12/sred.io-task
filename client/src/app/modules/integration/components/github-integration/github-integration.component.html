@@ -65,7 +65,7 @@
                 [style.width.%]="100"
                 [gridOptions]="gridOptions"></ag-grid-angular>
           </div>
-          <button class="fetch-record-button" color="primary" mat-raised-button [disabled]="!isAnyRowSelected || isLoading" (click)="fetchSelectedRepoDetails()">Fetch Selected Repository</button>
+          <button class="fetch-record-button" color="primary" mat-raised-button [disabled]="!isAnyRowSelected || isLoading" (click)="fetchSelectedRepoDetails()">Fetch Repository Details</button>
           <div class="selected-repos-details" #contributorGridContainer *ngIf="contributorGridOptions !== null">
             <ag-grid-angular class="ag-theme-alpine"
             [style.height.%]="100"

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { Octokit } from '@octokit/rest';
 import { createOctokitInstance } from './octokitClient.js';
 import * as githubService from '../services/githubService.js';
 
@@ -27,7 +26,7 @@ export const githubUserInfomation = async accessToken => {
 }
 
 export const fetchOrganizations = async (accessToken, integrationId) => {
-    const octokit = new Octokit({ auth: accessToken });
+    const octokit = createOctokitInstance(accessToken);
     let organizationList = [];
     let page = 1;
 
