@@ -45,9 +45,15 @@ export const fetchOrganizationsByIntegrationId = async integrationId => {
     return Organization.find({ integrationId: objectId });
 }
 
-export const fetchRepositoriesByIntegrationId = async (integrationId ) => {
+export const fetchIntegrations = async (limit, page) => {
+    const skip = limit * page;
+    return Integration.find({}, {token: 0}).limit(limit).skip(skip);
+}
+
+export const fetchRepositoriesByIntegrationId = async (integrationId, limit, page ) => {
+  const skip = limit * page;
   const integrationObjectId = MongooseObjectId(integrationId);
-  return Repository.find({ integrationId: integrationObjectId });
+  return Repository.find({ integrationId: integrationObjectId }).limit(limit).skip(skip);
 }
 
 export const findRepositoryById = async _id => {

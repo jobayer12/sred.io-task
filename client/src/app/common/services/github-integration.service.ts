@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
-import {HttpClient} from "@angular/common/http";
+import {HttpClient, HttpParams} from "@angular/common/http";
 import {IServerResponse} from "../models/IServerResponse";
 import {Observable} from "rxjs";
-import {IGithubRemove} from "../models/IGithubIntegration";
+import {IGithubIntegration, IGithubRemove} from "../models/IGithubIntegration";
 import { IGithubRepo } from '../models/IGithubRepo';
 import { IGithubContributor } from '../models/IGithubContributor';
 
@@ -25,9 +25,22 @@ export class GithubIntegrationService {
     return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`);
   }
 
+  repositoriesByIntegrationId(integrationId: string, limit: number = 100, page: number = 0):  Observable<IServerResponse<Array<IGithubRepo>>> {
+    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos/${integrationId}`);
+  }
+
   repositoryActivities(repositoryId: string): Observable<IServerResponse<Array<IGithubContributor>>> {
     return this.http.post<IServerResponse<Array<IGithubContributor>>>(`/api/v1/github/repository-activities`, {
       repositoryId: repositoryId
+    });
+  }
+
+  integrations(limit: number = 100, page: number = 0): Observable<IServerResponse<Array<IGithubIntegration>>> {
+    const params = new HttpParams();
+    params.set('limit', limit);
+    params.set('page', page);
+    return this.http.get<IServerResponse<Array<IGithubIntegration>>>('/api/v1/github/integrations', {
+      params: params
     });
   }
 

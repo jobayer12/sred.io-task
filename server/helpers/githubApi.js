@@ -116,6 +116,7 @@ const fetchPullRequests = async (accessToken, organization, repo, integrationId,
                 repo,
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (pullRequests.length === 0) break; // Exit if no more pullRequests
             
@@ -141,6 +142,7 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
                 repo, 
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (commits.length === 0) break; // Exit if no more commits
             
@@ -164,6 +166,7 @@ const fetchIssues = async (accessToken, organization, repo, integrationId, repos
                 repo,
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (issues.length === 0) break; // Exit if no more issue
             

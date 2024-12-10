@@ -1,25 +1,5 @@
 <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
 <div class="github-integration-container">
-  <div *ngIf="!isAuthenticated" class="github-integration-not-auth-container">
-    <mat-card>
-      <mat-expansion-panel expanded>
-        <mat-expansion-panel-header>
-          <mat-panel-title>
-            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo"
-                 width="20" style="margin-right: 10px;">
-            GitHub
-          </mat-panel-title>
-        </mat-expansion-panel-header>
-
-        <div class="expansion-container">
-          <button mat-raised-button color="primary" (click)="connectToGitHub()">
-            Connect
-          </button>
-          <p class="expansion-text">Connect Sredio to GitHub</p>
-        </div>
-      </mat-expansion-panel>
-    </mat-card>
-  </div>
   <div *ngIf="isAuthenticated" class="github-integration-auth-container">
     <mat-card>
       <mat-expansion-panel expanded="">

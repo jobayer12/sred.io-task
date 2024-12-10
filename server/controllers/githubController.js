@@ -50,7 +50,7 @@ export const githubCallback = async (req, res) => {
 
         // generate jwt token
         const jwtToken = await generateToken(tokenInfo);
-        res.redirect(`${process.env.CLIENT_URI}/integrations/github?token=${jwtToken}`);
+        res.redirect(`${process.env.CLIENT_URI}/oauth?token=${jwtToken}`);
     } catch (error) {
         res.status(500).json({ data: null, status: 500, error: error.message });
     }
@@ -91,16 +91,45 @@ export const verifyToken = async (req, res) => {
     }
 }
 
+export const fetchIntegrations = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    try {
+        const id = req.user.id;
+        const integration = await githubService.integrationFindOneById(id);
+        if (!integration) {
+            response.error = `Integration doesn't exists.`;
+            return res.status(500).json(response);
+        };
+
+        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
+        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+
+        const results = await githubService.fetchIntegrations(limit, page);
+        response.data = results;
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
 export const fetchRepositories = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
         const id = req.user.id;
         const integration = await githubService.integrationFindOneById(id);
         if (!integration) {
-            response.error = `User doesn't exists.`;
+            response.error = `Integration doesn't exists.`;
             return res.status(500).json(response);
         };
-        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id);
+
+        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
+        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+
+        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id, limit, page);
         response.data = results;
 
         res.status(200).json(response);
@@ -110,6 +139,32 @@ export const fetchRepositories = async (req, res) => {
         res.status(500).json(response);
     }
 }
+
+export const fetchRepositoriesByIntegrationId = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    try {
+        const id = req.params.integrationId;
+        const integration = await githubService.integrationFindOneById(id);
+        if (!integration) {
+            response.error = `Integration doesn't exists.`;
+            return res.status(500).json(response);
+        };
+
+        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
+        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+
+        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id, limit, page);
+        response.data = results;
+
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+
 
 export const fetchRepositoryActivity = async (req, res) => {
     const response = { status: 200, data: [], error: "" };

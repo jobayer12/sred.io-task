@@ -1,0 +1,54 @@
+<div class="dynamic-ag-grid-table-container">
+    <div class="dynamic-ag-grid-header-container">
+        <h1>Raw Data</h1>
+        <div class="dynamic-table-create-buttons">
+            <button mat-raised-button color="primary" (click)="addNewGrid()">New Grid</button>
+            <button mat-raised-button color="primary">New Global Search Grid</button>
+        </div>
+        <div></div>
+    </div>
+    <div *ngFor="let grid of grids; let index=index" class="dynamic-ag-grid-table-list">
+        <!-- Dropdowns -->
+        <div class="dropdown-section">
+            <div>
+                <p>Active Integrations: </p>
+                <mat-form-field appearance="outline">
+                    <mat-label>Select Integration: </mat-label>
+                    <mat-select [(value)]="grid.selectedIntegration"
+                        (selectionChange)="onIntegrationSelect(grid, index)">
+                        <mat-option *ngFor="let integration of integrations" [value]="integration">
+                            {{integration.username}}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <div>
+                <p>Entity: </p>
+                <mat-form-field appearance="outline">
+                    <mat-label>Projects</mat-label>
+                    <mat-select [(value)]="grid.selectedProject" (selectionChange)="onProjectSelect(grid, index)">
+                        <mat-option *ngFor="let entity of grid.projects" [value]="entity">
+                            {{entity.name}}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+            <div>
+                <mat-form-field appearance="outline">
+                    <mat-label>Search</mat-label>
+                    <input matInput [(ngModel)]="grid.searchText" (keyup)="onSearch(grid, index)" />
+                  </mat-form-field>
+            </div>
+            <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
+
+        </div>
+
+        <!-- AG-Grid -->
+        <ag-grid-angular class="ag-theme-alpine"
+        [rowData]="grid.rowData"
+        [columnDefs]="grid.columnDefs"
+        (gridReady)="onGridReady($event, grid, index)" [style.height.px]="400" [style.width.%]="100">
+        </ag-grid-angular>
+    </div>
+
+</div>
