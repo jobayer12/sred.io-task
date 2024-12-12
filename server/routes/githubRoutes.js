@@ -6,7 +6,9 @@ import {
     verifyToken,
     fetchRepositories,
     fetchRepositoryActivity,
-    fetchIntegrations
+    fetchIntegrations,
+    fetchPullRequests,
+    fetchCommits
 } from '../controllers/githubController.js';
 import { jwtVerification } from '../helpers/middleware.js';
 
@@ -21,6 +23,8 @@ router.get('/repos', jwtVerification, fetchRepositories);
 router.get('/repos/:integrationId', jwtVerification, fetchRepositories);
 router.post('/repository-activities', jwtVerification, fetchRepositoryActivity);
 router.get('/integrations', jwtVerification, fetchIntegrations);
+router.get('/pull-requests/:repoId', jwtVerification, fetchPullRequests);
+router.get('/commits/:repoId', jwtVerification, fetchCommits);
 
 
 export default router;

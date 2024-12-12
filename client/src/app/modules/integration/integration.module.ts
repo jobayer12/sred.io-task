@@ -16,7 +16,7 @@ import {MatToolbarModule} from '@angular/material/toolbar';
 import {MatSelectModule} from '@angular/material/select';
 import {MatPaginatorModule} from '@angular/material/paginator';
 import { MatInputModule } from '@angular/material/input';
-import {ScrollingModule} from '@angular/cdk/scrolling';
+
 
 
 @NgModule({

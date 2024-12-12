@@ -1,8 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { GithubIntegrationService } from '../../../../common/services/github-integration.service';
-import { ColDef, ColGroupDef, ColumnApi, GridApi, GridReadyEvent, RowDragEndEvent, SideBarDef } from 'ag-grid-community';
+import { ColDef, ColGroupDef, ColumnApi, GridApi, GridOptions, GridReadyEvent, RowDragEndEvent, SideBarDef } from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
 import { IGithubIntegration } from '../../../../common/models/IGithubIntegration';
+import 'ag-grid-enterprise';
+
 
 interface GridData {
   id: number;
@@ -78,6 +80,31 @@ export class DynamicAgGridTableComponent implements OnInit {
   onIntegrationSelect(grid: GridData, index: number) {
     if (grid.selectedIntegration?._id) {
       this.loadAllProjects(grid.selectedIntegration._id, index);
+    }
+  }
+
+  get sideBar(): SideBarDef {
+    return  {
+      toolPanels: [
+        {
+          id: 'columns',
+          labelDefault: 'Columns',
+          labelKey: 'columns',
+          iconKey: 'columns',
+          toolPanel: 'agColumnsToolPanel',
+          toolPanelParams: {
+            suppressPivotMode: true,
+            suppressRowGroups: true,
+            suppressValues: true,
+          },
+        },
+      ],
+    }
+  };
+
+  get gridOptions(): GridOptions {
+    return {
+      sideBar: this.sideBar
     }
   }
 

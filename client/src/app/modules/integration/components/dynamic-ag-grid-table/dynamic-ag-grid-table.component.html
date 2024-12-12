@@ -46,6 +46,8 @@
         <!-- AG-Grid -->
         <ag-grid-angular class="ag-theme-alpine"
         [rowData]="grid.rowData"
+        [sideBar]="sideBar"
+        [pivotMode]="false"
         [columnDefs]="grid.columnDefs"
         (gridReady)="onGridReady($event, grid, index)" [style.height.px]="400" [style.width.%]="100">
         </ag-grid-angular>

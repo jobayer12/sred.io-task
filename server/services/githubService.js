@@ -60,37 +60,160 @@ export const findRepositoryById = async _id => {
   return Repository.findOne({_id});
 }
 
-export const findCommits = async (filter = {}) => {
+export const countCommits = async(filter = {}) => {
     try {
+        // Initialize filter payload
         const filterPayload = {};
+        
+        // Check if a repositoryId is provided and convert it to ObjectId
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
         }
-        return Commit.find(filterPayload);
+
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+
+        // Get the total count for pagination metadata
+        return Commit.countDocuments(filterPayload);
     } catch (error) {
         throw error;
     }
 }
 
-export const findPullRequests = async (filter = {}) => {
+export const findCommits = async (filter = {}, pagination = {}) => {
     try {
         const filterPayload = {};
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
         }
-        return PullRequest.find(filterPayload);
+
+        const pipeline = [
+            { $match: filterPayload }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
+        }
+
+        return await Commit.aggregate(pipeline).exec();
     } catch (error) {
         throw error;
     }
 }
 
-export const findIssues = async (filter = {}) => {
+export const countPullRequests = async(filter = {}) => {
+    try {
+        // Initialize filter payload
+        const filterPayload = {};
+        
+        // Check if a repositoryId is provided and convert it to ObjectId
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        }
+
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+
+        // Get the total count for pagination metadata
+        return PullRequest.countDocuments(filterPayload);
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const findPullRequests = async (filter = {}, pagination = {}) => {
+    try {
+        const filterPayload = {};
+        // Check if a repositoryId is provided and convert it to ObjectId
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        }
+
+        const pipeline = [
+            { $match: filterPayload }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
+        }
+
+        // Execute the aggregation pipeline
+        return await PullRequest.aggregate(pipeline).exec();
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const countIssues = async (filter = {}) => {
+    try {
+        // Initialize filter payload
+        const filterPayload = {};
+        
+        // Check if a repositoryId is provided and convert it to ObjectId
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        }
+
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+
+        // Get the total count for pagination metadata
+        return Issue.countDocuments(filterPayload);
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const findIssues = async (filter = {}, pagination = {}) => {
     try {
         const filterPayload = {};
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
         }
-        return Issue.find(filterPayload);
+
+        const pipeline = [
+            { $match: filterPayload }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
+        }
+
+        // Execute the aggregation pipeline
+        return await Issue.aggregate(pipeline).exec();
     } catch (error) {
         throw error;
     }

@@ -23,6 +23,7 @@
     "@auth0/angular-jwt": "^5.2.0",
     "ag-grid-angular": "^31.3.4",
     "ag-grid-community": "^31.3.4",
+    "ag-grid-enterprise": "^31.3.4",
     "ngx-toastr": "^16.2.0",
     "ngx-ui-loader": "^13.0.0",
     "rxjs": "~7.8.0",

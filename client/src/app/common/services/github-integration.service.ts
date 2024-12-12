@@ -44,4 +44,8 @@ export class GithubIntegrationService {
     });
   }
 
+  // pullRequests(repoId: string,limit: number = 100, page: number = 0): Observable<IServerResponse<Array<any>>> {
+
+  // }
+
 }

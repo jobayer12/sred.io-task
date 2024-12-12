@@ -4,6 +4,10 @@ import * as jwt from '../helpers/jwt.js';  // If you need to access multiple fun
 import * as githubService from '../services/githubService.js';
 import * as githubApi from '../helpers/githubApi.js';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 100;
+
 // Redirect User to GitHub for Authentication
 export const githubAuth = (req, res) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
@@ -164,8 +168,6 @@ export const fetchRepositoriesByIntegrationId = async (req, res) => {
     }
 }
 
-
-
 export const fetchRepositoryActivity = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     const { repositoryId } = req.body; // Get repositoryId from query parameters
@@ -203,3 +205,109 @@ export const fetchRepositoryActivity = async (req, res) => {
         res.status(500).json(response);
     }
 }
+
+export const fetchPullRequests = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page } = req.query;
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+
+        const { repoId: repositoryId } = req.params;
+        if (!repositoryId) {
+            response.status = 400;
+            response.error = "repositoryId is required.";
+            return res.status(400).json(response);
+        }
+
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const repository = await githubService.fetchRepositories({integrationId, id: repositoryId});
+        if (!repository || repository.length === 0) {
+            response.status = 404;
+            response.error = "invalid repositoryId.";
+            return res.status(404).json(response);
+        }
+
+        const results = await githubService.findPullRequests({repositoryId}, {limit, page});
+        const totalCount = await githubService.countPullRequests({repositoryId});
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchCommits = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page } = req.query;
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+
+        const { repoId: repositoryId } = req.params;
+        if (!repositoryId) {
+            response.status = 400;
+            response.error = "repositoryId is required.";
+            return res.status(400).json(response);
+        }
+
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const repository = await githubService.fetchRepositories({integrationId, id: repositoryId});
+        if (!repository || repository.length === 0) {
+            response.status = 404;
+            response.error = "invalid repositoryId.";
+            return res.status(404).json(response);
+        }
+
+        // Fetch paginated commits
+        const results = await githubService.findCommits({ repositoryId }, { limit, page });
+        const totalCount = await githubService.countCommits({ repositoryId });
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+const responseTemplate = () => ({
+    status: 200,
+    data: [],
+    error: "",
+    pagination: {},
+});
