@@ -22,7 +22,7 @@ export const fetchIntegrationList = async () => {
     return await Integration.find();
 }
 
-export const fetchRepositories = async (filter = {}) => {
+export const countRepositories = async (filter = {}) => {
     const filterPayload = {};
     if (filter) {
         if ('integrationId' in filter) {
@@ -36,7 +36,39 @@ export const fetchRepositories = async (filter = {}) => {
             filterPayload['organizationId'] = MongooseObjectId(filter['organizationId']);
         }
     }
-    return Repository.find(filterPayload);
+    return await Repository.countDocuments(filterPayload);
+}
+
+export const fetchRepositories = async (filter = {}, pagination = {}) => {
+    const filterPayload = {};
+    if (filter) {
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+        if ('organizationId' in filter) {
+            filterPayload['organizationId'] = MongooseObjectId(filter['organizationId']);
+        }
+    }
+
+    const pipeline = [
+        { $match: filterPayload }, // Filtering stage
+    ];
+
+     // Add pagination stages only if page and limit are provided
+     if ('page' in pagination && 'limit' in pagination) {
+        const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+        const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+        const skip = (page - 1) * limit;
+
+        pipeline.push({ $skip: skip }); // Add skip stage
+        pipeline.push({ $limit: limit }); // Add limit stage
+    }
+    // Execute the aggregation pipeline
+    return await Repository.aggregate(pipeline).exec();
 }
 
 export const fetchOrganizationsByIntegrationId = async integrationId => {
@@ -88,8 +120,18 @@ export const countCommits = async(filter = {}) => {
 export const findCommits = async (filter = {}, pagination = {}) => {
     try {
         const filterPayload = {};
+        
+        // Check if a repositoryId is provided and convert it to ObjectId
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        }
+
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
         }
 
         const pipeline = [
@@ -145,6 +187,14 @@ export const findPullRequests = async (filter = {}, pagination = {}) => {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
         }
 
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+
         const pipeline = [
             { $match: filterPayload }, // Filtering stage
         ];
@@ -171,7 +221,6 @@ export const countIssues = async (filter = {}) => {
         // Initialize filter payload
         const filterPayload = {};
         
-        // Check if a repositoryId is provided and convert it to ObjectId
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
         }
@@ -194,8 +243,17 @@ export const countIssues = async (filter = {}) => {
 export const findIssues = async (filter = {}, pagination = {}) => {
     try {
         const filterPayload = {};
+
         if ('repositoryId' in filter) {
             filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        }
+
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
         }
 
         const pipeline = [

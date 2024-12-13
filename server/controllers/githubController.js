@@ -121,19 +121,36 @@ export const fetchIntegrations = async (req, res) => {
 }
 
 export const fetchRepositories = async (req, res) => {
-    const response = { status: 200, data: [], error: "" };
+    const response = responseTemplate();
     try {
-        const id = req.user.id;
-        const integration = await githubService.integrationFindOneById(id);
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const integration = await githubService.integrationFindOneById(integrationId);
         if (!integration) {
+            response.status = 404;
             response.error = `Integration doesn't exists.`;
-            return res.status(500).json(response);
+            return res.status(404).json(response);
         };
 
-        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
-        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+        let { limit, page } = req.query;
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
 
-        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id, limit, page);
+        const results = await githubService.fetchRepositories({integrationId: integration._id}, {limit, page});
+        const totalCount = await githubService.countRepositories({ integrationId: integration._id });
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
         response.data = results;
 
         res.status(200).json(response);
@@ -214,13 +231,6 @@ export const fetchPullRequests = async (req, res) => {
         limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
         page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
 
-        const { repoId: repositoryId } = req.params;
-        if (!repositoryId) {
-            response.status = 400;
-            response.error = "repositoryId is required.";
-            return res.status(400).json(response);
-        }
-
         const integrationId = req.user?.id;
         if (!integrationId) {
             response.status = 401;
@@ -228,15 +238,8 @@ export const fetchPullRequests = async (req, res) => {
             return res.status(401).json(response);
         }
 
-        const repository = await githubService.fetchRepositories({integrationId, id: repositoryId});
-        if (!repository || repository.length === 0) {
-            response.status = 404;
-            response.error = "invalid repositoryId.";
-            return res.status(404).json(response);
-        }
-
-        const results = await githubService.findPullRequests({repositoryId}, {limit, page});
-        const totalCount = await githubService.countPullRequests({repositoryId});
+        const results = await githubService.findPullRequests({integrationId}, {limit, page});
+        const totalCount = await githubService.countPullRequests({integrationId});
 
         // Prepare pagination info
         response.pagination = {
@@ -263,12 +266,41 @@ export const fetchCommits = async (req, res) => {
         limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
         page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
 
-        const { repoId: repositoryId } = req.params;
-        if (!repositoryId) {
-            response.status = 400;
-            response.error = "repositoryId is required.";
-            return res.status(400).json(response);
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
         }
+
+        // Fetch paginated commits
+        const results = await githubService.findCommits({ integrationId }, { limit, page });
+        const totalCount = await githubService.countCommits({ integrationId });
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchIssues = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page } = req.query;
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
 
         const integrationId = req.user?.id;
         if (!integrationId) {
@@ -277,16 +309,9 @@ export const fetchCommits = async (req, res) => {
             return res.status(401).json(response);
         }
 
-        const repository = await githubService.fetchRepositories({integrationId, id: repositoryId});
-        if (!repository || repository.length === 0) {
-            response.status = 404;
-            response.error = "invalid repositoryId.";
-            return res.status(404).json(response);
-        }
-
         // Fetch paginated commits
-        const results = await githubService.findCommits({ repositoryId }, { limit, page });
-        const totalCount = await githubService.countCommits({ repositoryId });
+        const results = await githubService.findIssues({ integrationId }, { limit, page });
+        const totalCount = await githubService.countIssues({ integrationId });
 
         // Prepare pagination info
         response.pagination = {

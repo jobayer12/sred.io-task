@@ -14,10 +14,9 @@
                 <p>Active Integrations: </p>
                 <mat-form-field appearance="outline">
                     <mat-label>Select Integration: </mat-label>
-                    <mat-select [(value)]="grid.selectedIntegration"
-                        (selectionChange)="onIntegrationSelect(grid, index)">
-                        <mat-option *ngFor="let integration of integrations" [value]="integration">
-                            {{integration.username}}
+                    <mat-select [(value)]="grid.integrationId">
+                        <mat-option [value]="grid.integrationId">
+                            {{jwtTokenDetails?.username}}
                         </mat-option>
                     </mat-select>
                 </mat-form-field>
@@ -26,9 +25,9 @@
                 <p>Entity: </p>
                 <mat-form-field appearance="outline">
                     <mat-label>Projects</mat-label>
-                    <mat-select [(value)]="grid.selectedProject" (selectionChange)="onProjectSelect(grid, index)">
-                        <mat-option *ngFor="let entity of grid.projects" [value]="entity">
-                            {{entity.name}}
+                    <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid, index)">
+                        <mat-option *ngFor="let collection of entityCollections" [value]="collection.key">
+                            {{collection.label}}
                         </mat-option>
                     </mat-select>
                 </mat-form-field>
@@ -36,21 +35,27 @@
             <div>
                 <mat-form-field appearance="outline">
                     <mat-label>Search</mat-label>
-                    <input matInput [(ngModel)]="grid.searchText" (keyup)="onSearch(grid, index)" />
+                    <input matInput [(ngModel)]="grid.searchText" (keyup)="onSearch(grid)" />
                   </mat-form-field>
             </div>
             <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
 
         </div>
-
+        <ng-container *ngIf="isLoading[grid.id]; else gridContent">
+            <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+        </ng-container>
         <!-- AG-Grid -->
-        <ag-grid-angular class="ag-theme-alpine"
-        [rowData]="grid.rowData"
-        [sideBar]="sideBar"
-        [pivotMode]="false"
-        [columnDefs]="grid.columnDefs"
-        (gridReady)="onGridReady($event, grid, index)" [style.height.px]="400" [style.width.%]="100">
-        </ag-grid-angular>
+        <ng-template #gridContent>
+            <ag-grid-angular
+              class="ag-theme-alpine"
+              [gridOptions]="grid.gridOptions"
+              [columnDefs]="grid.columnDefs"
+              (paginationChanged)="onPaginationChange(grid)"
+              (gridReady)="onGridReady($event, grid, index)"
+              [style.height.px]="400"
+              [style.width.%]="100"
+            ></ag-grid-angular>
+          </ng-template>
     </div>
 
 </div>

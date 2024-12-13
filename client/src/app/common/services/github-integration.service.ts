@@ -21,10 +21,6 @@ export class GithubIntegrationService {
     return this.http.delete<IServerResponse<boolean>>(`/api/v1/github/remove`);
   }
 
-  repositories(): Observable<IServerResponse<Array<IGithubRepo>>> {
-    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`);
-  }
-
   repositoriesByIntegrationId(integrationId: string, limit: number = 100, page: number = 0):  Observable<IServerResponse<Array<IGithubRepo>>> {
     return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos/${integrationId}`);
   }
@@ -35,17 +31,39 @@ export class GithubIntegrationService {
     });
   }
 
-  integrations(limit: number = 100, page: number = 0): Observable<IServerResponse<Array<IGithubIntegration>>> {
-    const params = new HttpParams();
-    params.set('limit', limit);
-    params.set('page', page);
-    return this.http.get<IServerResponse<Array<IGithubIntegration>>>('/api/v1/github/integrations', {
+  repositories(limit: number = 100, page: number = 1): Observable<IServerResponse<Array<IGithubRepo>>> {
+    const params = new HttpParams()
+            .set('limit', limit.toString())
+            .set('page', page.toString());
+    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`, {
       params: params
     });
   }
 
-  // pullRequests(repoId: string,limit: number = 100, page: number = 0): Observable<IServerResponse<Array<any>>> {
+  pullRequests(limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+    const params = new HttpParams()
+            .set('limit', limit.toString())
+            .set('page', page.toString());
+    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/pull-requests`, {
+      params: params
+    });
+  }
 
-  // }
+  commits(limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+    const params = new HttpParams()
+            .set('limit', limit.toString())
+            .set('page', page.toString());
+    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/commits`, {
+      params: params
+    });
+  }
 
+  issues(limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+    const params = new HttpParams()
+            .set('limit', limit.toString())
+            .set('page', page.toString());
+    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/issues`, {
+      params: params
+    });
+  }
 }

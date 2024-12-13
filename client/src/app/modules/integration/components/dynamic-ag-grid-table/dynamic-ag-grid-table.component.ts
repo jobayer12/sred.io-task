@@ -1,21 +1,39 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { GithubIntegrationService } from '../../../../common/services/github-integration.service';
-import { ColDef, ColGroupDef, ColumnApi, GridApi, GridOptions, GridReadyEvent, RowDragEndEvent, SideBarDef } from 'ag-grid-community';
+import {
+  ColDef,
+  ColGroupDef,
+  ColumnApi,
+  GridApi,
+  GridOptions,
+  GridReadyEvent,
+  RowDragEndEvent,
+  SideBarDef,
+  IServerSideDatasource,
+  IServerSideGetRowsParams
+} from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
-import { IGithubIntegration } from '../../../../common/models/IGithubIntegration';
 import 'ag-grid-enterprise';
+import { AuthService } from '../../../../common/services/auth.service';
+import { IJWTTokenDetails } from '../../../../common/models/IToken';
+import { Observable } from 'rxjs';
+import { IServerResponse } from '../../../../common/models/IServerResponse';
 
+type CollectionType = 'projects' | 'commits' | 'pull-requests' | 'issues';
 
-interface GridData {
+type Pagination = {
+  limit: number;
+  page: number;
+}
+
+type GridData = {
   id: number;
-  rows: any[];
-  integrations: Array<IGithubIntegration>;
-  selectedIntegration: IGithubIntegration | null;
-  selectedProject: any;
-  projects: any[];
+  integrationId: string | undefined;
   columnDefs: Array<ColDef | ColGroupDef>;
-  rowData: any[];
-  searchText: ''
+  searchText: '',
+  gridOptions: GridOptions,
+  collection: CollectionType | null,
+  pagination: Pagination;
 }
 
 @Component({
@@ -24,45 +42,54 @@ interface GridData {
   styleUrls: ['./dynamic-ag-grid-table.component.scss']
 })
 export class DynamicAgGridTableComponent implements OnInit {
-  
+
   @ViewChild('selectPanel', { static: false }) selectIntegrationPanel!: ElementRef;
   grids: GridData[] = [];
 
-  gridApis: {[key: number]: {gridApi: GridApi, columnApi: ColumnApi}} = {};
-  isLoading: {[key: string]: boolean} = {};
-  pagination = {
+  entityCollections: Array<{ key: CollectionType, label: string }> = [
+    {
+      key: 'projects',
+      label: 'Projects'
+    },
+    {
+      key: 'commits',
+      label: 'Commits'
+    },
+    {
+      key: 'pull-requests',
+      label: 'Pull Requests'
+    },
+    {
+      key: 'issues',
+      label: 'Issues'
+    }
+  ];
+
+  gridApis: { [key: number]: { gridApi: GridApi, columnApi: ColumnApi } } = {};
+
+  // loading in specific grid based on gridId
+  isLoading: { [key: number]: boolean } = {};
+
+  // default pagination
+  defaultPagination: Pagination = {
     limit: 100,
-    page: 0
+    page: 1
   }
 
-  repositoryPagination = {
-    limit: 100,
-    page: 0
-  }
-
-  integrations: Array<IGithubIntegration> = [];
-
-  isColumnAlreadyGenerated: {[key: string]: boolean} = {};
+  // token details
+  jwtTokenDetails!: IJWTTokenDetails | null;
 
   constructor(
     private readonly githubIntegrationService: GithubIntegrationService,
+    private readonly authService: AuthService,
     private readonly toastrService: ToastrService
-  ) {}
-
-  ngOnInit(): void {
-    this.loadAllIntegrations();
+  ) {
+    if (this.authService.isAuthenticated()) {
+      this.jwtTokenDetails = this.authService.decodeToken();
+    }
   }
 
-  loadAllIntegrations(): void {
-    this.githubIntegrationService.integrations(this.pagination.limit, this.pagination.page).subscribe(response => {
-      if (response.data.length >= 100) {
-        this.pagination.page++;
-      }
-      this.integrations.push(...response.data);
-    }, error => {
-      this.toastrService.error(error?.error?.error ?? 'Failed to load integrations');
-    });
-  }
+  ngOnInit(): void { }
 
   // Grid ready event handler
   onGridReady(params: GridReadyEvent, grid: GridData, index: number) {
@@ -77,14 +104,8 @@ export class DynamicAgGridTableComponent implements OnInit {
     console.log('Row drag ended for grid:', grid.id);
   }
 
-  onIntegrationSelect(grid: GridData, index: number) {
-    if (grid.selectedIntegration?._id) {
-      this.loadAllProjects(grid.selectedIntegration._id, index);
-    }
-  }
-
   get sideBar(): SideBarDef {
-    return  {
+    return {
       toolPanels: [
         {
           id: 'columns',
@@ -102,23 +123,32 @@ export class DynamicAgGridTableComponent implements OnInit {
     }
   };
 
+  get defaultColDef(): (ColDef | ColGroupDef) {
+    return {
+      filter: "agTextColumnFilter",
+    }
+  }
+
   get gridOptions(): GridOptions {
     return {
-      sideBar: this.sideBar
+      sideBar: this.sideBar,
+      pagination: true,
+      defaultColDef: this.defaultColDef,
+      paginationPageSize: 100,
+      rowModelType: 'serverSide',
+      paginationPageSizeSelector: [100]
     }
   }
 
   addNewGrid() {
     const newGrid: GridData = {
       id: this.grids.length + 1,
-      rows: [],
-      selectedIntegration: null,
-      selectedProject: null,
-      projects: [],
-      integrations: this.integrations,
       columnDefs: [],
-      rowData: [],
-      searchText: ''
+      gridOptions: this.gridOptions,
+      integrationId: this.jwtTokenDetails?.id,
+      searchText: '',
+      collection: null,
+      pagination: this.defaultPagination
     };
     this.grids.push(newGrid);
   }
@@ -128,26 +158,83 @@ export class DynamicAgGridTableComponent implements OnInit {
     this.grids.splice(index, 1);
   }
 
-  onProjectSelect(grid: GridData, index: number): void {
-    if (!this.isColumnAlreadyGenerated[index]) {
-      grid.columnDefs = this.generateColDefs(grid.selectedProject);
+  onCollectionChange(grid: GridData, index: number): void {
+    if (!this.validateCollection(grid)) return;
+    const apiCall = this.getApiCall(grid);
+    if (!apiCall) {
+      return;
     }
-    grid.rowData = [this.flattenRowData(grid.selectedProject)];
+  
+    // Call fetchData with the API call function and grid
+    this.fetchData(apiCall, grid);
   }
 
-  loadAllProjects(integrationId: string, index: number): void {
-    this.githubIntegrationService.repositoriesByIntegrationId(integrationId).subscribe(response => {
-      this.grids[index].projects = response.data;
-    }, error => {
-      this.toastrService.error(error?.error?.error ?? 'Failed to load integrations');
-    });
+  private validateCollection(grid: GridData): boolean {
+    if (!grid.collection) {
+      this.toastrService.error('Collection is not selected.');
+      return false;
+    }
+    return true;
+  }
+
+  incrementPage(grid: GridData): void {
+    grid.pagination.page += 1; // Increment page by 1
+  }
+
+  private startLoading(grid: GridData): void {
+    this.isLoading[grid.id] = true;
+  }
+
+  private stopLoading(grid: GridData): void {
+    this.isLoading[grid.id] = false;
+  }
+
+  private fetchData(apiCall: (pagination: Pagination) => Observable<any>, grid: GridData): void {
+    const dataSource: IServerSideDatasource = {
+      getRows: (params: IServerSideGetRowsParams) => {
+        // Call the API with pagination parameters
+        apiCall(grid.pagination).subscribe(
+          (response) => {
+            const { data, pagination } = response; // API response structure
+            grid.columnDefs = this.generateColDefs(data[0]);
+            setTimeout(() => {
+              params.success({
+                rowData: data.map((d: any) => this.flattenRowData(d)),
+                rowCount: pagination.totalCount || 100,
+              });
+            }, 200);
+          },
+          (error) => {
+            console.error('Error fetching data:', error);
+            params.fail(); // Notify AG-Grid of the failure
+          }
+        );
+      },
+    };
+  
+    this.gridApis[grid.id - 1].gridApi.setGridOption('serverSideDatasource', dataSource);
+  }
+
+  private getApiCall(grid: GridData): (pagination: Pagination) => Observable<any> {
+    switch (grid.collection) {
+      case 'projects':
+        return pagination => this.githubIntegrationService.repositories(pagination.limit, pagination.page);
+      case 'commits':
+        return pagination => this.githubIntegrationService.commits(pagination.limit, pagination.page);
+      case 'pull-requests':
+        return pagination => this.githubIntegrationService.pullRequests(pagination.limit, pagination.page);
+      case 'issues':
+        return pagination => this.githubIntegrationService.issues(pagination.limit, pagination.page);
+      default:
+        throw new Error('Invalid entity selected.');
+    }
   }
 
   flattenRowData(data: any, parentKey: string = '', result: any = {}): any {
     for (const key in data) {
       if (data.hasOwnProperty(key)) {
         const fullKey = parentKey ? `${parentKey}_${key}` : key;
-  
+
         if (typeof data[key] === 'object' && !Array.isArray(data[key]) && data[key] !== null) {
           // Recursively flatten nested objects
           this.flattenRowData(data[key], fullKey, result);
@@ -162,34 +249,34 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   generateColDefs(data: any): (ColDef | ColGroupDef)[] {
     const colDefs: any[] = [];
-  
+
     const processKey = (key: string, value: any, parentKey: string = '') => {
       const fullKey = parentKey ? `${parentKey}_${key}` : key;
-  
+
       if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
         // Create a group header for nested objects
         const groupColDef: ColGroupDef = {
           headerName: this.capitalizeFirstLetter(key),
           children: [],
         };
-  
+
         Object.keys(value).forEach((nestedKey) => {
           // Push children into the groupColDef's children array
           const childColDefs = processKey(nestedKey, value[nestedKey], fullKey);
           groupColDef.children!.push(...(Array.isArray(childColDefs) ? childColDefs : [childColDefs]));
         });
-  
+
         return groupColDef; // Return the group column definition
       } else {
         // Create a regular column for primitive values
         return {
           field: fullKey,
           headerName: this.capitalizeFirstLetter(key),
-          
+
         } as ColDef;
       }
     };
-  
+
     Object.keys(data).forEach((key) => {
       const colDef = processKey(key, data[key]);
       if (Array.isArray(colDef)) {
@@ -198,17 +285,26 @@ export class DynamicAgGridTableComponent implements OnInit {
         colDefs.push(colDef);
       }
     });
-  
+
     return colDefs;
   }
-  
+
 
   capitalizeFirstLetter(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  onSearch(grid: GridData, index: number): void {
-    this.gridApis[index].gridApi.setQuickFilter(grid.searchText);
+  onSearch(grid: GridData): void {
+    this.gridApis[grid.id - 1].gridApi.setQuickFilter(grid.searchText);
+  }
+
+  onPaginationChange(grid: GridData): void {
+    if (this.gridApis[grid.id-1]) {
+      const currentPage = this.gridApis[grid.id-1].gridApi.paginationGetCurrentPage() + 1; // Convert to 1-based index
+      const pageSize = this.gridApis[grid.id-1].gridApi.paginationGetPageSize();
+      grid.pagination.limit = pageSize;
+      grid.pagination.page = currentPage;
+    }
   }
 
 }
