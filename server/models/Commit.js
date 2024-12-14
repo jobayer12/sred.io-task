@@ -11,4 +11,6 @@ const CommitSchema = new mongoose.Schema({
     commit: Object
 });
 
+CommitSchema.index({ '$**': 'text' });
+
 export default mongoose.model('github-commit', CommitSchema);

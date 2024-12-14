@@ -8,7 +8,11 @@ const PullRequestSchema = new mongoose.Schema({
         type: Date,
         default: Date.now, // Automatically set the timestamp
     },
-    pull: Object,
+    pull: {
+        type: Object
+    },
 });
+
+PullRequestSchema.index({ '$**': 'text' });
 
 export default mongoose.model('github-pull-request', PullRequestSchema);

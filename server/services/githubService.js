@@ -15,14 +15,14 @@ export const processIntegrations = async data => {
 }
 
 export const integrationFindOneById = async id => {
-    return Integration.findOne({_id: id});
+    return Integration.findOne({ _id: id });
 }
 
 export const fetchIntegrationList = async () => {
     return await Integration.find();
 }
 
-export const countRepositories = async (filter = {}) => {
+export const formatRepositoryFilterParams = (filter = {}) => {
     const filterPayload = {};
     if (filter) {
         if ('integrationId' in filter) {
@@ -35,31 +35,28 @@ export const countRepositories = async (filter = {}) => {
         if ('organizationId' in filter) {
             filterPayload['organizationId'] = MongooseObjectId(filter['organizationId']);
         }
+
+        // Dynamic search across all fields
+        if ('search' in filter) {
+            // Step 1: Fetch all field names dynamically
+            filterPayload['$text'] = {$search: filter.search};
+        }
+
     }
-    return await Repository.countDocuments(filterPayload);
+    return filterPayload;
+}
+
+export const countRepositories = async (filter = {}) => {
+    return await Repository.countDocuments(formatRepositoryFilterParams(filter));
 }
 
 export const fetchRepositories = async (filter = {}, pagination = {}) => {
-    const filterPayload = {};
-    if (filter) {
-        if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
-        }
-
-        if ('id' in filter) {
-            filterPayload['_id'] = MongooseObjectId(filter['id']);
-        }
-        if ('organizationId' in filter) {
-            filterPayload['organizationId'] = MongooseObjectId(filter['organizationId']);
-        }
-    }
-
     const pipeline = [
-        { $match: filterPayload }, // Filtering stage
+        { $match: formatRepositoryFilterParams(filter) }, // Filtering stage
     ];
 
-     // Add pagination stages only if page and limit are provided
-     if ('page' in pagination && 'limit' in pagination) {
+    // Add pagination stages only if page and limit are provided
+    if ('page' in pagination && 'limit' in pagination) {
         const page = parseInt(pagination.page, 10) || 0; // Default to page 0
         const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
         const skip = (page - 1) * limit;
@@ -79,39 +76,47 @@ export const fetchOrganizationsByIntegrationId = async integrationId => {
 
 export const fetchIntegrations = async (limit, page) => {
     const skip = limit * page;
-    return Integration.find({}, {token: 0}).limit(limit).skip(skip);
+    return Integration.find({}, { token: 0 }).limit(limit).skip(skip);
 }
 
-export const fetchRepositoriesByIntegrationId = async (integrationId, limit, page ) => {
-  const skip = limit * page;
-  const integrationObjectId = MongooseObjectId(integrationId);
-  return Repository.find({ integrationId: integrationObjectId }).limit(limit).skip(skip);
+export const fetchRepositoriesByIntegrationId = async (integrationId, limit, page) => {
+    const skip = limit * page;
+    const integrationObjectId = MongooseObjectId(integrationId);
+    return Repository.find({ integrationId: integrationObjectId }).limit(limit).skip(skip);
 }
 
 export const findRepositoryById = async _id => {
-  return Repository.findOne({_id});
+    return Repository.findOne({ _id });
 }
 
-export const countCommits = async(filter = {}) => {
-    try {
-        // Initialize filter payload
-        const filterPayload = {};
-        
-        // Check if a repositoryId is provided and convert it to ObjectId
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
-
+const formatCommitFilterParams = (filter ={}) => {
+    const filterPayload = {};
+    if (filter) {
         if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
         }
 
         if ('id' in filter) {
             filterPayload['_id'] = MongooseObjectId(filter['id']);
         }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
 
+        // Dynamic search across all fields
+        if ('search' in filter) {
+            // Step 1: Fetch all field names dynamically
+            filterPayload['$text'] = {$search: filter.search};
+        }
+    }
+    return filterPayload;
+}
+
+export const countCommits = async (filter = {}) => {
+    try {
+        
         // Get the total count for pagination metadata
-        return Commit.countDocuments(filterPayload);
+        return Commit.countDocuments(formatCommitFilterParams(filter));
     } catch (error) {
         throw error;
     }
@@ -119,23 +124,9 @@ export const countCommits = async(filter = {}) => {
 
 export const findCommits = async (filter = {}, pagination = {}) => {
     try {
-        const filterPayload = {};
-        
-        // Check if a repositoryId is provided and convert it to ObjectId
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
-
-        if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
-        }
-
-        if ('id' in filter) {
-            filterPayload['_id'] = MongooseObjectId(filter['id']);
-        }
 
         const pipeline = [
-            { $match: filterPayload }, // Filtering stage
+            { $match: formatCommitFilterParams(filter) }, // Filtering stage
         ];
 
         // Add pagination stages only if page and limit are provided
@@ -154,26 +145,35 @@ export const findCommits = async (filter = {}, pagination = {}) => {
     }
 }
 
-export const countPullRequests = async(filter = {}) => {
-    try {
-        // Initialize filter payload
-        const filterPayload = {};
-        
-        // Check if a repositoryId is provided and convert it to ObjectId
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
 
+export const formatPullRequestFilterParams = (filter = {}) => {
+    console.log('filter: ', filter);
+    const filterPayload = {};
+    if (filter) {
         if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
         }
 
         if ('id' in filter) {
             filterPayload['_id'] = MongooseObjectId(filter['id']);
         }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
 
+        // Dynamic search across all fields
+        if ('search' in filter && filter.search) {
+            filterPayload['$text'] = {$search: filter.search};
+        }
+
+    }
+    return filterPayload;
+}
+
+export const countPullRequests = async (filter = {}) => {
+    try {
         // Get the total count for pagination metadata
-        return PullRequest.countDocuments(filterPayload);
+        return PullRequest.countDocuments(formatPullRequestFilterParams(filter));
     } catch (error) {
         throw error;
     }
@@ -181,22 +181,8 @@ export const countPullRequests = async(filter = {}) => {
 
 export const findPullRequests = async (filter = {}, pagination = {}) => {
     try {
-        const filterPayload = {};
-        // Check if a repositoryId is provided and convert it to ObjectId
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
-
-        if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
-        }
-
-        if ('id' in filter) {
-            filterPayload['_id'] = MongooseObjectId(filter['id']);
-        }
-
         const pipeline = [
-            { $match: filterPayload }, // Filtering stage
+            { $match: formatPullRequestFilterParams(filter) }, // Filtering stage
         ];
 
         // Add pagination stages only if page and limit are provided
@@ -216,25 +202,33 @@ export const findPullRequests = async (filter = {}, pagination = {}) => {
     }
 }
 
-export const countIssues = async (filter = {}) => {
-    try {
-        // Initialize filter payload
-        const filterPayload = {};
-        
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
-
+export const formatIssueFilterParams = (filter = {}) => {
+    const filterPayload = {};
+    if (filter) {
         if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
         }
 
         if ('id' in filter) {
             filterPayload['_id'] = MongooseObjectId(filter['id']);
         }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
+
+        // Dynamic search across all fields
+        if ('search' in filter) {
+            filterPayload['$text'] = {$search: filter.search};
+        }
+    }
+    return filterPayload;
+}
+
+export const countIssues = async (filter = {}) => {
+    try {
 
         // Get the total count for pagination metadata
-        return Issue.countDocuments(filterPayload);
+        return Issue.countDocuments(formatIssueFilterParams(filter));
     } catch (error) {
         throw error;
     }
@@ -242,22 +236,9 @@ export const countIssues = async (filter = {}) => {
 
 export const findIssues = async (filter = {}, pagination = {}) => {
     try {
-        const filterPayload = {};
-
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
-        }
-
-        if ('integrationId' in filter) {
-            filterPayload['integrationId'] = MongooseObjectId(filter.integrationId);
-        }
-
-        if ('id' in filter) {
-            filterPayload['_id'] = MongooseObjectId(filter['id']);
-        }
-
+        console.log('formatIssueFilterParams(filter): ', formatIssueFilterParams(filter));
         const pipeline = [
-            { $match: filterPayload }, // Filtering stage
+            { $match: formatIssueFilterParams(filter) }, // Filtering stage
         ];
 
         // Add pagination stages only if page and limit are provided
@@ -280,7 +261,7 @@ export const findIssues = async (filter = {}, pagination = {}) => {
 export const findRepositoryActivies = async repositoryId => {
     const repositoryActivityMap = {};
     try {
-        const commits = await findCommits({repositoryId});
+        const commits = await findCommits({ repositoryId });
         // Aggregate commits by user
         commits.filter(commit => commit && commit.commit && commit.commit.author).forEach(commit => {
             const username = commit.commit.author.login;
@@ -295,7 +276,7 @@ export const findRepositoryActivies = async repositoryId => {
     }
 
     try {
-        const issues = await findIssues({repositoryId});
+        const issues = await findIssues({ repositoryId });
         // Aggregate issues by user
         issues.forEach(issue => {
             const username = issue.issue.user?.login || 'Unknown';
@@ -309,7 +290,7 @@ export const findRepositoryActivies = async repositoryId => {
     }
 
     try {
-        const pullRequests = await findPullRequests({repositoryId});
+        const pullRequests = await findPullRequests({ repositoryId });
         // Aggregate pull requests by user
         pullRequests.forEach(pr => {
             const username = pr.pull.user?.login || 'Unknown';
@@ -325,58 +306,58 @@ export const findRepositoryActivies = async repositoryId => {
 }
 
 export const processOrganizations = async (organizations, integrationId) => {
-  try {
-      await Promise.all(organizations.map(async (org) => {
-          const { id: orgId, login: name } = org;
-          // Remove unnecessary fields before saving
-          delete org.id;
-          delete org.login;
+    try {
+        await Promise.all(organizations.map(async (org) => {
+            const { id: orgId, login: name } = org;
+            // Remove unnecessary fields before saving
+            delete org.id;
+            delete org.login;
 
-          // Update or insert the organization into the database
-          await Organization.findOneAndUpdate(
-              { orgId },
-              {
-                  orgId,
-                  name,
-                  integrationId,
-                  org,
-              },
-              { upsert: true, new: true }
-          );
-      }));
-  } catch (error) {
-      console.error('Error processing organizations:', error);
-  }
+            // Update or insert the organization into the database
+            await Organization.findOneAndUpdate(
+                { orgId },
+                {
+                    orgId,
+                    name,
+                    integrationId,
+                    org,
+                },
+                { upsert: true, new: true }
+            );
+        }));
+    } catch (error) {
+        console.error('Error processing organizations:', error);
+    }
 };
 
 export const processRepositories = async (repositories, orgId, integrationId) => {
-  try {
-      // Use Promise.all to handle DB updates in parallel
-      await Promise.all(repositories.map(async (repo) => {
-          const repoId = repo.id;
-          const name = repo.name;
+    try {
+        // Use Promise.all to handle DB updates in parallel
+        await Promise.all(repositories.map(async (repo) => {
+            const repoId = repo.id;
+            const name = repo.name;
 
-          // Remove unwanted fields from the repository data
-          const { id, name: repoName, ...repoData } = repo;
+            // Remove unwanted fields from the repository data
+            const { id, name: repoName, ...repoData } = repo;
 
-          // Insert/update repository data in the database
-          return Repository.findOneAndUpdate(
-              { name }, // Find by name (repository name)
-              {
-                  repoId,
-                  name,
-                  link: repo.html_url,
-                  slug: repo.full_name,
-                  integrationId,
-                  organizationId: orgId,
-                  repo: repoData, // Store the repository data
-              },
-              { upsert: true, new: true } // Upsert if not found, return the updated document
-          );
-      }));
-  } catch (error) {
-      console.error('Error processing repositories:', error);
-  }
+            // Insert/update repository data in the database
+            return Repository.findOneAndUpdate(
+                { name }, // Find by name (repository name)
+                {
+                    repoId,
+                    name,
+                    link: repo.html_url,
+                    slug: repo.full_name,
+                    integrationId,
+                    organizationId: orgId,
+                    repo: repoData, // Store the repository data
+                },
+                { upsert: true, new: true } // Upsert if not found, return the updated document
+            );
+        }));
+    } catch (error) {
+        console.error('Error processing repositories:', error);
+    }
 };
 
 export const processCommits = async (commits, integrationId, repositoryId) => {

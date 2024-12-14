@@ -18,4 +18,6 @@ const RepositorySchema = new mongoose.Schema({
     }
 });
 
+RepositorySchema.index({ '$**': 'text' });
+
 export default mongoose.model('github-repository', RepositorySchema);

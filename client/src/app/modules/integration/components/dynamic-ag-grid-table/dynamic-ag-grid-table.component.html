@@ -51,7 +51,7 @@
               [gridOptions]="grid.gridOptions"
               [columnDefs]="grid.columnDefs"
               (paginationChanged)="onPaginationChange(grid)"
-              (gridReady)="onGridReady($event, grid, index)"
+              (gridReady)="onGridReady($event, grid)"
               [style.height.px]="400"
               [style.width.%]="100"
             ></ag-grid-angular>

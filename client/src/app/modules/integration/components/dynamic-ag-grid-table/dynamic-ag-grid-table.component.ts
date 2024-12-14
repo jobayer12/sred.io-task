@@ -7,17 +7,22 @@ import {
   GridApi,
   GridOptions,
   GridReadyEvent,
-  RowDragEndEvent,
   SideBarDef,
   IServerSideDatasource,
-  IServerSideGetRowsParams
+  IServerSideGetRowsParams,
+  ModuleRegistry,
 } from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
 import 'ag-grid-enterprise';
 import { AuthService } from '../../../../common/services/auth.service';
 import { IJWTTokenDetails } from '../../../../common/models/IToken';
 import { Observable } from 'rxjs';
-import { IServerResponse } from '../../../../common/models/IServerResponse';
+import { MultiFilterModule, SetFilterModule,  } from 'ag-grid-enterprise';
+
+// ModuleRegistry.registerModules([
+//   MultiFilterModule,
+//   SetFilterModule,
+// ]);
 
 type CollectionType = 'projects' | 'commits' | 'pull-requests' | 'issues';
 
@@ -92,16 +97,11 @@ export class DynamicAgGridTableComponent implements OnInit {
   ngOnInit(): void { }
 
   // Grid ready event handler
-  onGridReady(params: GridReadyEvent, grid: GridData, index: number) {
-    this.gridApis[index] = {
+  onGridReady(params: GridReadyEvent, grid: GridData) {
+    this.gridApis[grid.id] = {
       columnApi: params.columnApi,
       gridApi: params.api
     }
-  }
-
-  // Row drag end event handler
-  onRowDragMoved(event: RowDragEndEvent, grid: GridData) {
-    console.log('Row drag ended for grid:', grid.id);
   }
 
   get sideBar(): SideBarDef {
@@ -125,7 +125,7 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   get defaultColDef(): (ColDef | ColGroupDef) {
     return {
-      filter: "agTextColumnFilter",
+      filter: false,
     }
   }
 
@@ -136,13 +136,13 @@ export class DynamicAgGridTableComponent implements OnInit {
       defaultColDef: this.defaultColDef,
       paginationPageSize: 100,
       rowModelType: 'serverSide',
-      paginationPageSizeSelector: [100]
+      paginationPageSizeSelector: [100],
     }
   }
 
   addNewGrid() {
     const newGrid: GridData = {
-      id: this.grids.length + 1,
+      id: this.grids.length,
       columnDefs: [],
       gridOptions: this.gridOptions,
       integrationId: this.jwtTokenDetails?.id,
@@ -181,14 +181,6 @@ export class DynamicAgGridTableComponent implements OnInit {
     grid.pagination.page += 1; // Increment page by 1
   }
 
-  private startLoading(grid: GridData): void {
-    this.isLoading[grid.id] = true;
-  }
-
-  private stopLoading(grid: GridData): void {
-    this.isLoading[grid.id] = false;
-  }
-
   private fetchData(apiCall: (pagination: Pagination) => Observable<any>, grid: GridData): void {
     const dataSource: IServerSideDatasource = {
       getRows: (params: IServerSideGetRowsParams) => {
@@ -196,7 +188,9 @@ export class DynamicAgGridTableComponent implements OnInit {
         apiCall(grid.pagination).subscribe(
           (response) => {
             const { data, pagination } = response; // API response structure
-            grid.columnDefs = this.generateColDefs(data[0]);
+            if (data.length > 0) {
+              grid.columnDefs = this.generateColDefs(data[0]);
+            }
             setTimeout(() => {
               params.success({
                 rowData: data.map((d: any) => this.flattenRowData(d)),
@@ -212,7 +206,7 @@ export class DynamicAgGridTableComponent implements OnInit {
       },
     };
   
-    this.gridApis[grid.id - 1].gridApi.setGridOption('serverSideDatasource', dataSource);
+    this.gridApis[grid.id].gridApi.setGridOption('serverSideDatasource', dataSource);
   }
 
   private getApiCall(grid: GridData): (pagination: Pagination) => Observable<any> {
@@ -285,7 +279,6 @@ export class DynamicAgGridTableComponent implements OnInit {
         colDefs.push(colDef);
       }
     });
-
     return colDefs;
   }
 
@@ -295,13 +288,13 @@ export class DynamicAgGridTableComponent implements OnInit {
   }
 
   onSearch(grid: GridData): void {
-    this.gridApis[grid.id - 1].gridApi.setQuickFilter(grid.searchText);
+    this.gridApis[grid.id].gridApi.setQuickFilter(grid.searchText);
   }
 
   onPaginationChange(grid: GridData): void {
-    if (this.gridApis[grid.id-1]) {
-      const currentPage = this.gridApis[grid.id-1].gridApi.paginationGetCurrentPage() + 1; // Convert to 1-based index
-      const pageSize = this.gridApis[grid.id-1].gridApi.paginationGetPageSize();
+    if (this.gridApis[grid.id]) {
+      const currentPage = this.gridApis[grid.id].gridApi.paginationGetCurrentPage() + 1; // Convert to 1-based index
+      const pageSize = this.gridApis[grid.id].gridApi.paginationGetPageSize();
       grid.pagination.limit = pageSize;
       grid.pagination.page = currentPage;
     }
