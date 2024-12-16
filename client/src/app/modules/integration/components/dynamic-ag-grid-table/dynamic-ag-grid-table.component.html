@@ -1,0 +1,65 @@
+<div class="dynamic-ag-grid-table-container">
+    <div class="dynamic-ag-grid-header-container">
+        <h1>Raw Data</h1>
+        <div class="dynamic-table-create-buttons">
+            <button mat-raised-button color="primary" (click)="addNewGrid()">New Grid</button>
+            <button  #triggerButton mat-raised-button color="primary" (click)="addNewGlobalSearchGrid()">
+                New Global Search Grid
+            </button>
+        </div>
+        <div></div>
+    </div>
+    <div *ngFor="let grid of grids; let index=index" class="dynamic-ag-grid-table-list">
+        <!-- Dropdowns -->
+        <div class="dropdown-section">
+            <div class="dropdown-left-items">
+                <div>
+                    <p>Active Integrations: </p>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Select Integration: </mat-label>
+                        <mat-select [(value)]="grid.integrationId">
+                            <mat-option [value]="grid.integrationId">
+                                {{jwtTokenDetails?.username}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div>
+                    <p>Entity: </p>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Projects</mat-label>
+                        <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid)">
+                            <mat-option *ngFor="let collection of entityCollections" [value]="collection.key">
+                                {{collection.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
+            <div class="dropdown-right-items">
+                <div>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Search</mat-label>
+                        <input matInput [(ngModel)]="grid.searchText" [minlength]="2" (input)="onSearch(grid)" />
+                    </mat-form-field>
+                </div>
+                <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
+            </div>
+        </div>
+        <ng-container *ngIf="isLoading[grid.id]; else gridContent">
+            <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+        </ng-container>
+        <!-- AG-Grid -->
+        <ng-template #gridContent>
+            <ag-grid-angular class="ag-theme-alpine"
+            [gridOptions]="grid.gridOptions"
+            [columnDefs]="grid.columnDefs"
+            (paginationChanged)="onPaginationChange(grid)"
+            (gridReady)="onGridReady($event, grid)"
+            (filterChanged)="onFilterChanged($event, grid)"
+            [serverSideDatasource]="grid.serverSideDatasource"
+            [style.height.px]="400" [style.width.%]="100"></ag-grid-angular>
+        </ng-template>
+    </div>
+
+</div>

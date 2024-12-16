@@ -8,7 +8,11 @@ const IssueSchema = new mongoose.Schema({
         type: Date,
         default: Date.now, // Automatically set the timestamp
     },
-    issue: Object
+    issue: {
+       type: Object,
+    }
 });
+
+IssueSchema.index({ '$**': 'text' });
 
 export default mongoose.model('github-issue', IssueSchema);

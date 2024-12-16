@@ -70,13 +70,13 @@ export const fetchRepositories = async (accessToken, integrationId, organization
                     page: page, // Pagination
                 });
 
-                if (repositories.length === 0) break; // Exit loop when no more repositories
-
                 // Add fetched repositories to the list
                 repoList.push(...repositories);
 
                 // Process repositories in parallel for DB updates
                 await githubService.processRepositories(repositories, org._id, integrationId);
+
+                if (repositories.length < 100) break; // Exit loop when no more repositories
 
                 page++; // Increment page for pagination
             }
@@ -116,6 +116,7 @@ const fetchPullRequests = async (accessToken, organization, repo, integrationId,
                 repo,
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (pullRequests.length === 0) break; // Exit if no more pullRequests
             
@@ -141,6 +142,7 @@ export const fetchCommits = async (accessToken, organization, repo, integrationI
                 repo, 
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (commits.length === 0) break; // Exit if no more commits
             
@@ -164,6 +166,7 @@ const fetchIssues = async (accessToken, organization, repo, integrationId, repos
                 repo,
                 per_page: 100,
                 page,
+                state: 'all'
             });
             if (issues.length === 0) break; // Exit if no more issue
             

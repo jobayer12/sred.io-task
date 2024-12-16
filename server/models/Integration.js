@@ -18,6 +18,6 @@ const IntegrationSchema = new Schema({
         default: Date.now, // Automatically set the timestamp
     },
 });
-
+IntegrationSchema.index({ '$**': 'text' });
 // Export the model
 export default mongoose.model('github-integration', IntegrationSchema);

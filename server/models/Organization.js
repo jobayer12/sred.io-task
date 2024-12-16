@@ -10,5 +10,5 @@ const OrganizationSchema = new mongoose.Schema({
     },
     org: Object,
 });
-
+OrganizationSchema.index({ '$**': 'text' });
 export default mongoose.model('github-organization', OrganizationSchema);

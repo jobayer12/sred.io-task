@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import {HttpClient} from "@angular/common/http";
-import {IServerResponse} from "../models/IServerResponse";
-import {Observable} from "rxjs";
-import {IGithubRemove} from "../models/IGithubIntegration";
+import { HttpClient, HttpParams } from "@angular/common/http";
+import { IServerResponse, PaginationReponse } from "../models/IServerResponse";
+import { Observable } from "rxjs";
 import { IGithubRepo } from '../models/IGithubRepo';
 import { IGithubContributor } from '../models/IGithubContributor';
+import { ColumnHttpFilterParams } from '../models/IAgGridColumnFilter';
 
 @Injectable({
   providedIn: 'root'
@@ -21,8 +21,8 @@ export class GithubIntegrationService {
     return this.http.delete<IServerResponse<boolean>>(`/api/v1/github/remove`);
   }
 
-  repositories(): Observable<IServerResponse<Array<IGithubRepo>>> {
-    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`);
+  repositoriesByIntegrationId(integrationId: string): Observable<IServerResponse<Array<IGithubRepo>>> {
+    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos/${integrationId}`);
   }
 
   repositoryActivities(repositoryId: string): Observable<IServerResponse<Array<IGithubContributor>>> {
@@ -31,4 +31,116 @@ export class GithubIntegrationService {
     });
   }
 
+  repositories(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<IGithubRepo>>  & PaginationReponse> {
+    let params = new HttpParams()
+      .set('limit', limit || 100)
+      .set('page', page || 1)
+    if (search) {
+      params = params.append('search', search);
+    }
+    if (columnFilters.length > 0) {
+      columnFilters.forEach((filter, index) => {
+        params = params.append(`columnFilters[${index}][filterType]`, filter.filterType);
+        params = params.append(`columnFilters[${index}][type]`, filter.type);
+        params = params.append(`columnFilters[${index}][key]`, filter.key);
+
+        // Handle `value` dynamically based on its type
+        if (Array.isArray(filter.value)) {
+          filter.value.forEach((val, i) => {
+            params = params.append(`columnFilters[${index}][value][${i}]`, val.toString());
+          });
+        } else {
+          params = params.append(`columnFilters[${index}][value]`, filter.value.toString());
+        }
+      });
+    }
+    return this.http.get<IServerResponse<Array<IGithubRepo>> & PaginationReponse>(`/api/v1/github/repos`, {
+      params: params
+    });
+  }
+
+  pullRequests(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
+    let params = new HttpParams()
+      .set('limit', limit || 100)
+      .set('page', page || 1)
+    if (search) {
+      params = params.append('search', search);
+    }
+    if (columnFilters.length > 0) {
+      columnFilters.forEach((filter, index) => {
+        params = params.append(`columnFilters[${index}][filterType]`, filter.filterType);
+        params = params.append(`columnFilters[${index}][type]`, filter.type);
+        params = params.append(`columnFilters[${index}][key]`, filter.key);
+        // Handle `value` dynamically based on its type
+        if (Array.isArray(filter.value)) {
+          filter.value.forEach((val, i) => {
+            params = params.append(`columnFilters[${index}][value][${i}]`, val.toString());
+          });
+        } else {
+          params = params.append(`columnFilters[${index}][value]`, filter.value.toString());
+        }
+      });
+    }
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/pull-requests`, {
+      params: params
+    });
+  }
+
+  commits(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
+    let params = new HttpParams()
+      .set('limit', limit || 100)
+      .set('page', page || 1);
+
+    if (search) {
+      params = params.append('search', search);
+    }
+
+    if (columnFilters.length > 0) {
+      columnFilters.forEach((filter, index) => {
+        params = params.append(`columnFilters[${index}][filterType]`, filter.filterType);
+        params = params.append(`columnFilters[${index}][type]`, filter.type);
+        params = params.append(`columnFilters[${index}][key]`, filter.key);
+
+        // Handle `value` dynamically based on its type
+        if (Array.isArray(filter.value)) {
+          filter.value.forEach((val, i) => {
+            params = params.append(`columnFilters[${index}][value][${i}]`, val.toString());
+          });
+        } else {
+          params = params.append(`columnFilters[${index}][value]`, filter.value.toString());
+        }
+      });
+    }
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/commits`, {
+      params: params
+    });
+  }
+
+  issues(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
+    let params = new HttpParams()
+      .set('limit', limit || 100)
+      .set('page', page || 1);
+    if (search) {
+      params = params.append('search', search);
+    }
+    if (columnFilters.length > 0) {
+      columnFilters.forEach((filter, index) => {
+        params = params.append(`columnFilters[${index}][filterType]`, filter.filterType);
+        params = params.append(`columnFilters[${index}][type]`, filter.type);
+        params = params.append(`columnFilters[${index}][key]`, filter.key);
+
+        // Handle `value` dynamically based on its type
+        if (Array.isArray(filter.value)) {
+          filter.value.forEach((val, i) => {
+            params = params.append(`columnFilters[${index}][value][${i}]`, val.toString());
+          });
+        } else {
+          params = params.append(`columnFilters[${index}][value]`, filter.value.toString());
+        }
+      });
+    }
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/issues`, {
+      params: params
+    });
+  }
 }

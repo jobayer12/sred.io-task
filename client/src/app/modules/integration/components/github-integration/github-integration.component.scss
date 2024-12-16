@@ -6,29 +6,6 @@ div {
     align-items: start;
     justify-content: center;
     div {
-      &.github-integration-not-auth-container {
-        mat-card {
-          margin-top: 10px;
-          width: 400px;
-          mat-expansion-panel {
-            background: #f9f9f9;
-            div {
-              &.expansion-container {
-                text-align: center;
-                padding: 20px;
-                p.expansion-text {
-                  margin-top: 15px;
-                  font-weight: 500;
-                  color: #3f51b5;
-                }
-                button {
-                  width: 120px;
-                }
-              }
-            }
-          }
-        }
-      }
       &.github-integration-auth-container {
         height: 50px;
         mat-card {

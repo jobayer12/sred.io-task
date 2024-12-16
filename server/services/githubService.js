@@ -4,7 +4,7 @@ import Repository from '../models/Repository.js';
 import Commit from '../models/Commit.js';
 import PullRequest from '../models/PullRequest.js';
 import Issue from '../models/Issue.js';
-import { MongooseObjectId } from '../helpers/utils.js';
+import { MongooseObjectId, FormatColumnFilter } from '../helpers/utils.js';
 
 export const processIntegrations = async data => {
     return Integration.findOneAndUpdate(
@@ -15,14 +15,14 @@ export const processIntegrations = async data => {
 }
 
 export const integrationFindOneById = async id => {
-    return Integration.findOne({_id: id});
+    return Integration.findOne({ _id: id });
 }
 
 export const fetchIntegrationList = async () => {
     return await Integration.find();
 }
 
-export const fetchRepositories = async (filter = {}) => {
+export const formatRepositoryFilterParams = (filter = {}) => {
     const filterPayload = {};
     if (filter) {
         if ('integrationId' in filter) {
@@ -35,8 +35,48 @@ export const fetchRepositories = async (filter = {}) => {
         if ('organizationId' in filter) {
             filterPayload['organizationId'] = MongooseObjectId(filter['organizationId']);
         }
+
+        // Dynamic search across all fields
+        if ('search' in filter && filter.search) {
+            // Step 1: Fetch all field names dynamically
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
+        }
     }
-    return Repository.find(filterPayload);
+    return filterPayload;
+}
+
+export const countRepositories = async (filter = {}) => {
+    return await Repository.countDocuments(formatRepositoryFilterParams(filter));
+}
+
+export const fetchRepositories = async (filter = {}, pagination = {}) => {
+    const pipeline = [
+        { $match: formatRepositoryFilterParams(filter) }, // Filtering stage
+    ];
+
+    // Add pagination stages only if page and limit are provided
+    if ('page' in pagination && 'limit' in pagination) {
+        const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+        const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+        const skip = (page - 1) * limit;
+
+        pipeline.push({ $skip: skip }); // Add skip stage
+        pipeline.push({ $limit: limit }); // Add limit stage
+    }
+    // Execute the aggregation pipeline
+    return await Repository.aggregate(pipeline).exec();
 }
 
 export const fetchOrganizationsByIntegrationId = async integrationId => {
@@ -45,46 +85,218 @@ export const fetchOrganizationsByIntegrationId = async integrationId => {
     return Organization.find({ integrationId: objectId });
 }
 
-export const fetchRepositoriesByIntegrationId = async (integrationId ) => {
-  const integrationObjectId = MongooseObjectId(integrationId);
-  return Repository.find({ integrationId: integrationObjectId });
+export const fetchIntegrations = async (limit, page) => {
+    const skip = limit * page;
+    return Integration.find({}, { token: 0 }).limit(limit).skip(skip);
+}
+
+export const fetchRepositoriesByIntegrationId = async (integrationId, limit, page) => {
+    const skip = limit * page;
+    const integrationObjectId = MongooseObjectId(integrationId);
+    return Repository.find({ integrationId: integrationObjectId }).limit(limit).skip(skip);
 }
 
 export const findRepositoryById = async _id => {
-  return Repository.findOne({_id});
+    return Repository.findOne({ _id });
 }
 
-export const findCommits = async (filter = {}) => {
-    try {
-        const filterPayload = {};
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+const formatCommitFilterParams = (filter = {}) => {
+    const filterPayload = {};
+    if (filter) {
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
         }
-        return Commit.find(filterPayload);
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
+
+        // Dynamic search across all fields
+        if ('search' in filter && filter.search) {
+            // Step 1: Fetch all field names dynamically
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+                console.log('filter: ', filter);
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
+        }
+    }
+    return filterPayload;
+}
+
+export const countCommits = async (filter = {}) => {
+    try {
+        // Get the total count for pagination metadata
+        return Commit.countDocuments(formatCommitFilterParams(filter));
     } catch (error) {
         throw error;
     }
 }
 
-export const findPullRequests = async (filter = {}) => {
+export const findCommits = async (filter = {}, pagination = {}) => {
     try {
-        const filterPayload = {};
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+        const pipeline = [
+            { $match: formatCommitFilterParams(filter) }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
         }
-        return PullRequest.find(filterPayload);
+
+        return await Commit.aggregate(pipeline).exec();
     } catch (error) {
         throw error;
     }
 }
 
-export const findIssues = async (filter = {}) => {
-    try {
-        const filterPayload = {};
-        if ('repositoryId' in filter) {
-            filterPayload['repositoryId'] = MongooseObjectId(filter.repositoryId);
+
+export const formatPullRequestFilterParams = (filter = {}) => {
+    const filterPayload = {};
+    if (filter) {
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
         }
-        return Issue.find(filterPayload);
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
+
+        // Dynamic search across all fields
+        if ('search' in filter && filter.search) {
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
+        }
+
+    }
+    return filterPayload;
+}
+
+export const countPullRequests = async (filter = {}) => {
+    try {
+        // Get the total count for pagination metadata
+        return PullRequest.countDocuments(formatPullRequestFilterParams(filter));
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const findPullRequests = async (filter = {}, pagination = {}) => {
+    try {
+        const pipeline = [
+            { $match: formatPullRequestFilterParams(filter) }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
+        }
+
+        // Execute the aggregation pipeline
+        return await PullRequest.aggregate(pipeline).exec();
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const formatIssueFilterParams = (filter = {}) => {
+    const filterPayload = {};
+    if (filter) {
+        if ('integrationId' in filter) {
+            filterPayload['integrationId'] = MongooseObjectId(filter['integrationId']);
+        }
+
+        if ('id' in filter) {
+            filterPayload['_id'] = MongooseObjectId(filter['id']);
+        }
+        if ('repositoryId' in filter) {
+            filterPayload['repositoryId'] = MongooseObjectId(filter['repositoryId']);
+        }
+
+        // Dynamic search across all fields
+        if ('search' in filter && filter.search) {
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
+        }
+    }
+    return filterPayload;
+}
+
+export const countIssues = async (filter = {}) => {
+    try {
+
+        // Get the total count for pagination metadata
+        return Issue.countDocuments(formatIssueFilterParams(filter));
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const findIssues = async (filter = {}, pagination = {}) => {
+    try {
+        const pipeline = [
+            { $match: formatIssueFilterParams(filter) }, // Filtering stage
+        ];
+
+        // Add pagination stages only if page and limit are provided
+        if ('page' in pagination && 'limit' in pagination) {
+            const page = parseInt(pagination.page, 10) || 0; // Default to page 0
+            const limit = parseInt(pagination.limit, 10) || 100; // Default to 100 items per page
+            const skip = (page - 1) * limit;
+
+            pipeline.push({ $skip: skip }); // Add skip stage
+            pipeline.push({ $limit: limit }); // Add limit stage
+        }
+
+        // Execute the aggregation pipeline
+        return await Issue.aggregate(pipeline).exec();
     } catch (error) {
         throw error;
     }
@@ -93,7 +305,7 @@ export const findIssues = async (filter = {}) => {
 export const findRepositoryActivies = async repositoryId => {
     const repositoryActivityMap = {};
     try {
-        const commits = await findCommits({repositoryId});
+        const commits = await findCommits({ repositoryId });
         // Aggregate commits by user
         commits.filter(commit => commit && commit.commit && commit.commit.author).forEach(commit => {
             const username = commit.commit.author.login;
@@ -108,7 +320,7 @@ export const findRepositoryActivies = async repositoryId => {
     }
 
     try {
-        const issues = await findIssues({repositoryId});
+        const issues = await findIssues({ repositoryId });
         // Aggregate issues by user
         issues.forEach(issue => {
             const username = issue.issue.user?.login || 'Unknown';
@@ -122,7 +334,7 @@ export const findRepositoryActivies = async repositoryId => {
     }
 
     try {
-        const pullRequests = await findPullRequests({repositoryId});
+        const pullRequests = await findPullRequests({ repositoryId });
         // Aggregate pull requests by user
         pullRequests.forEach(pr => {
             const username = pr.pull.user?.login || 'Unknown';
@@ -138,58 +350,69 @@ export const findRepositoryActivies = async repositoryId => {
 }
 
 export const processOrganizations = async (organizations, integrationId) => {
-  try {
-      await Promise.all(organizations.map(async (org) => {
-          const { id: orgId, login: name } = org;
-          // Remove unnecessary fields before saving
-          delete org.id;
-          delete org.login;
+    try {
+        await Promise.all(organizations.map(async (org) => {
+            const { id: orgId, login: name } = org;
+            // Remove unnecessary fields before saving
+            delete org.id;
+            delete org.login;
 
-          // Update or insert the organization into the database
-          await Organization.findOneAndUpdate(
-              { orgId },
-              {
-                  orgId,
-                  name,
-                  integrationId,
-                  org,
-              },
-              { upsert: true, new: true }
-          );
-      }));
-  } catch (error) {
-      console.error('Error processing organizations:', error);
-  }
+            // Update or insert the organization into the database
+            await Organization.findOneAndUpdate(
+                { orgId },
+                {
+                    orgId,
+                    name,
+                    integrationId,
+                    org,
+                },
+                { upsert: true, new: true }
+            );
+        }));
+    } catch (error) {
+        console.error('Error processing organizations:', error);
+    }
+};
+
+const sanitizeRepositoryObject = (payload) => {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const sanitized = { ...payload };
+    if (sanitized.language) {
+        sanitized.language_field = sanitized.language
+    }
+    // Remove problematic fields
+    delete sanitized.language_override;
+    delete sanitized.$text;
+    delete sanitized.language; // If this field is present and causes issues
+
+    return sanitized;
 };
 
 export const processRepositories = async (repositories, orgId, integrationId) => {
-  try {
-      // Use Promise.all to handle DB updates in parallel
-      await Promise.all(repositories.map(async (repo) => {
-          const repoId = repo.id;
-          const name = repo.name;
+    try {
+        // Use Promise.all to handle DB updates in parallel
+        await Promise.all(repositories.map(async (repo) => {
+            const payload = {
+                repoId: repo.id,
+                name: repo.name,
+                link: repo.html_url,
+                slug: repo.full_name,
+                integrationId,
+                organizationId: orgId,
+                repo: sanitizeRepositoryObject(repo),
+            }
 
-          // Remove unwanted fields from the repository data
-          const { id, name: repoName, ...repoData } = repo;
-
-          // Insert/update repository data in the database
-          return Repository.findOneAndUpdate(
-              { name }, // Find by name (repository name)
-              {
-                  repoId,
-                  name,
-                  link: repo.html_url,
-                  slug: repo.full_name,
-                  integrationId,
-                  organizationId: orgId,
-                  repo: repoData, // Store the repository data
-              },
-              { upsert: true, new: true } // Upsert if not found, return the updated document
-          );
-      }));
-  } catch (error) {
-      console.error('Error processing repositories:', error);
-  }
+            // Insert/update repository data in the database
+            return Repository.findOneAndUpdate(
+                { repoId: payload.repoId }, // Find by repoId (repository id)
+                payload,
+                { upsert: true, new: true, strict: false } // Upsert if not found, return the updated document
+            );
+        }));
+    } catch (error) {
+        console.error('Error processing repositories:', error);
+    }
 };
 
 export const processCommits = async (commits, integrationId, repositoryId) => {
@@ -202,11 +425,11 @@ export const processCommits = async (commits, integrationId, repositoryId) => {
                     return await Commit.findOneAndUpdate(
                         { sha: commit.sha }, // Find by SHA (unique identifier for commits)
                         {
-                            commit,
+                            commit: commit,
                             integrationId,
                             repositoryId,
                         },
-                        { upsert: true, new: true } // Upsert if not found, return the updated document
+                        { upsert: true, new: true, strict: false } // Upsert if not found, return the updated document
                     );
                 } catch (error) {
                     console.error(`Error processing commit with SHA ${commit.sha}:`, error);
@@ -218,20 +441,41 @@ export const processCommits = async (commits, integrationId, repositoryId) => {
     }
 };
 
+const sanitizePullRequestObject = (payload) => {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const sanitized = { ...payload };
+    if (sanitized.head.repo.language) {        
+        sanitized.head.repo.language_field = sanitized.head.repo.language
+    }
+    if (sanitized.base.repo.language) {        
+        sanitized.base.repo.language_field = sanitized.base.repo.language
+    }
+    // Remove problematic fields
+    
+    delete sanitized.base.repo.language; // If this field is present and causes issues
+    delete sanitized.head.repo.language
+    return sanitized;
+};
+
 export const processPullRequests = async (pulls, integrationId, repositoryId) => {
     try {
         // Use Promise.all to handle DB updates in parallel
         await Promise.all(
             pulls.map(async (pull) => {
+                
                 try {
+
+                    const payload = {
+                        integrationId,
+                        repositoryId,
+                        pull: sanitizePullRequestObject(pull),
+                    }
+
                     // Insert/update repository data in the database
                     return await PullRequest.findOneAndUpdate(
                         { pullRequestId: pull.id }, // Find by pullRequestId (pull request id)
-                        {
-                            pull,
-                            integrationId,
-                            repositoryId,
-                        },
+                        payload,
                         { upsert: true, new: true } // Upsert if not found, return the updated document
                     );
                 } catch (error) {
@@ -254,7 +498,7 @@ export const processIssues = async (issues, integrationId, repositoryId) => {
                     return await Issue.findOneAndUpdate(
                         { issueId: issue.id }, // Find by issueId (unique identifier for issues)
                         {
-                            issue,
+                            issue: issue,
                             integrationId,
                             repositoryId,
                         },

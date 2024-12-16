@@ -43,13 +43,6 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
     if (this.authService.isAuthenticated()) {
       this.retriveTokenDetails();
     }
-    // Check if redirected from GitHub with an access token
-    this.route.queryParams.subscribe((params) => {
-      if (params['token']) {
-        this.validateIntegrationToken(params['token']);
-        this.removeQueryParams({token: null});
-      }
-    });
   }
 
   onResizeGridContainer() {
@@ -144,13 +137,6 @@ export class GithubIntegrationComponent implements OnInit, OnDestroy {
     this.loadGithubRepositories();
   }
 
-  removeQueryParams(params: Object): void {
-    // Remove query params
-    this.router.navigate([], {
-      queryParams: params,
-      queryParamsHandling: 'merge'
-    });
-  }
 
   validateIntegrationToken(token: string): void {
     this.isLoading = true;

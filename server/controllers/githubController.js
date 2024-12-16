@@ -4,6 +4,10 @@ import * as jwt from '../helpers/jwt.js';  // If you need to access multiple fun
 import * as githubService from '../services/githubService.js';
 import * as githubApi from '../helpers/githubApi.js';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 100;
+
 // Redirect User to GitHub for Authentication
 export const githubAuth = (req, res) => {
     const clientId = process.env.GITHUB_CLIENT_ID;
@@ -50,7 +54,7 @@ export const githubCallback = async (req, res) => {
 
         // generate jwt token
         const jwtToken = await generateToken(tokenInfo);
-        res.redirect(`${process.env.CLIENT_URI}/integrations/github?token=${jwtToken}`);
+        res.redirect(`${process.env.CLIENT_URI}/oauth?token=${jwtToken}`);
     } catch (error) {
         res.status(500).json({ data: null, status: 500, error: error.message });
     }
@@ -91,16 +95,89 @@ export const verifyToken = async (req, res) => {
     }
 }
 
-export const fetchRepositories = async (req, res) => {
+export const fetchIntegrations = async (req, res) => {
     const response = { status: 200, data: [], error: "" };
     try {
         const id = req.user.id;
         const integration = await githubService.integrationFindOneById(id);
         if (!integration) {
-            response.error = `User doesn't exists.`;
+            response.error = `Integration doesn't exists.`;
             return res.status(500).json(response);
         };
-        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id);
+
+        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
+        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+
+        const results = await githubService.fetchIntegrations(limit, page);
+        response.data = results;
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchRepositories = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const integration = await githubService.integrationFindOneById(integrationId);
+        if (!integration) {
+            response.status = 404;
+            response.error = `Integration doesn't exists.`;
+            return res.status(404).json(response);
+        };
+
+        let { limit, page, search, columnFilters } = req.query;
+        if (!columnFilters) {
+            columnFilters = [];
+        }
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+        const filter = {integrationId: integration._id, search, columnFilters};
+        const results = await githubService.fetchRepositories(filter, {limit, page});
+        const totalCount = await githubService.countRepositories(filter);
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+        response.data = results;
+
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchRepositoriesByIntegrationId = async (req, res) => {
+    const response = { status: 200, data: [], error: "" };
+    try {
+        const id = req.params.integrationId;
+        const integration = await githubService.integrationFindOneById(id);
+        if (!integration) {
+            response.error = `Integration doesn't exists.`;
+            return res.status(500).json(response);
+        };
+
+        const limit = parseInt(req.query.limit, 10) || 100; // Default limit is 100
+        const page = parseInt(req.query.page, 10) || 0; // Default page is 0
+
+        const results = await githubService.fetchRepositoriesByIntegrationId(integration._id, limit, page);
         response.data = results;
 
         res.status(200).json(response);
@@ -148,3 +225,130 @@ export const fetchRepositoryActivity = async (req, res) => {
         res.status(500).json(response);
     }
 }
+
+export const fetchPullRequests = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page, search, columnFilters } = req.query;
+        if (!columnFilters) {
+            columnFilters = [];
+        }
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+        const filter = {integrationId: integrationId, search, columnFilters};
+        const results = await githubService.findPullRequests(filter, {limit, page});
+        const totalCount = await githubService.countPullRequests(filter);
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchCommits = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page, search, columnFilters } = req.query;
+        if (!columnFilters) {
+            columnFilters = [];
+        }
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const filter = {integrationId: integrationId, search, columnFilters};
+
+        // Fetch paginated commits
+        const results = await githubService.findCommits(filter, { limit, page });
+        const totalCount = await githubService.countCommits(filter);
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+export const fetchIssues = async (req, res) => {
+    const response = responseTemplate();
+    try {
+        // Extract and validate query parameters
+        let { limit, page, search, columnFilters } = req.query;
+        if (!columnFilters) {
+            columnFilters = [];
+        }
+        limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
+        page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
+
+        const integrationId = req.user?.id;
+        if (!integrationId) {
+            response.status = 401;
+            response.error = "Unauthorized access.";
+            return res.status(401).json(response);
+        }
+
+        const filter = {integrationId: integrationId, search, columnFilters};
+
+        // Fetch paginated commits
+        const results = await githubService.findIssues(filter, { limit, page });
+        const totalCount = await githubService.countIssues(filter);
+
+        // Prepare pagination info
+        response.pagination = {
+            totalCount,
+            currentPage: page,
+            totalItems: results.length,
+            totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 0,
+        };
+
+        response.data = results;
+        res.status(200).json(response);
+    } catch (error) {
+        response.status = 500;
+        response.error = error.message;
+        res.status(500).json(response);
+    }
+}
+
+const responseTemplate = () => ({
+    status: 200,
+    data: [],
+    error: "",
+    pagination: {},
+});
