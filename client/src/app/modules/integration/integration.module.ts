@@ -20,14 +20,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GlobalSearchDialogComponent } from './dialog/global-search-dialog/global-search-dialog.component';
 import { MatDialogModule } from '@angular/material/dialog';
 
-
-
 @NgModule({
   declarations: [
     GithubIntegrationComponent,
     GithubAuthComponent,
     DynamicAgGridTableComponent,
-    GlobalSearchDialogComponent
+    GlobalSearchDialogComponent,
   ],
   imports: [
     CommonModule,

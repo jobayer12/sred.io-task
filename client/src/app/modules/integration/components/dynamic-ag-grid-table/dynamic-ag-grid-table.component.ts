@@ -27,8 +27,8 @@ import {
   SetFilterModule,
 } from 'ag-grid-enterprise';
 
-import { isValidDate } from '../../../../common/utils/utils'
-import { ColumnHttpFilterParams, ConditionalGridColumnFilter, DateRangeFilter, NumberRangeFilter } from '../../../../common/models/IAgGridColumnFilter';
+import { FlattenRowData, GenerateColDef, ProcessColumnFilter } from '../../../../common/utils/utils'
+import { ColumnFilter, ColumnHttpFilterParams } from '../../../../common/models/IAgGridColumnFilter';
 
 ModuleRegistry.registerModules([
   SetFilterModule,
@@ -36,9 +36,6 @@ ModuleRegistry.registerModules([
 ]);
 
 type CollectionType = 'projects' | 'commits' | 'pull-requests' | 'issues';
-type ColumnFilter = {
-  [key: string]: ConditionalGridColumnFilter
-}
 
 type GridData = {
   id: number;
@@ -222,69 +219,19 @@ export class DynamicAgGridTableComponent implements OnInit {
     grid.pagination.page += 1; // Increment page by 1
   }
 
-  processColumnFilter(filter: ColumnFilter | null): Array<ColumnHttpFilterParams> {
-    if (!filter || Object.keys(filter).length === 0) return [];
-    return Object.keys(filter).map((key: string) => {
-      const gridFilter: ConditionalGridColumnFilter = filter[key];
-      let formatPayload!: ColumnHttpFilterParams;
-      const formattedKey = key.replaceAll('__', '.');
-      if (gridFilter.filterType === 'date') {
-        if (gridFilter.type === 'inRange' && 'dateFrom' in gridFilter && 'dateTo' in gridFilter && gridFilter.dateTo) {
-          formatPayload = {
-            filterType: 'date',
-            value: [gridFilter.dateFrom, gridFilter.dateTo],
-            type: gridFilter.type,
-            key: formattedKey
-          };
-        } else if ('dateFrom' in gridFilter) {
-          formatPayload = {
-            filterType: 'date',
-            value: gridFilter.dateFrom,
-            type: gridFilter.type,
-            key: formattedKey
-          };
-        }
-      } else if (gridFilter.filterType === 'number') {
-        if (gridFilter.type === 'inRange' && 'filterTo' in gridFilter && 'filter' in gridFilter) {
-          formatPayload = {
-            filterType: 'number',
-            value: [+gridFilter.filter, +gridFilter.filterTo],
-            type: gridFilter.type,
-            key: formattedKey
-          };
-        } else {
-          formatPayload = {
-            filterType: 'number',
-            value: gridFilter.filter,
-            type: gridFilter.type,
-            key: formattedKey
-          };
-        }
-      } else {
-        formatPayload = {
-          filterType: 'text',
-          value: gridFilter.filter,
-          type: gridFilter.type,
-          key: formattedKey
-        };
-      }
-      return formatPayload;
-    });
-  }
-
   private fetchData(apiCall: (search: string, columns: Array<ColumnHttpFilterParams>, pagination: IPagination) => Observable<any>, grid: GridData): void {
     const dataSource: IServerSideDatasource = {
       getRows: (params: IServerSideGetRowsParams) => {
-        const columnFilters = this.processColumnFilter(grid.columnFilters);
+        const columnFilters = ProcessColumnFilter(grid.columnFilters);
         apiCall(grid.searchText, columnFilters, grid.pagination).subscribe(
           (response) => {
             const { data, pagination } = response; // API response structure
             if (data.length > 0) {
-              grid.columnDefs = this.generateColDefs(data[0]);
+              grid.columnDefs = GenerateColDef(data[0]);
             }
             setTimeout(() => {
               params.success({
-                rowData: data.map((d: any) => this.flattenRowData(d)),
+                rowData: data.map((d: any) => FlattenRowData(d)),
                 rowCount: pagination.totalCount || 0,
               });
             }, 200);
@@ -314,84 +261,6 @@ export class DynamicAgGridTableComponent implements OnInit {
       default:
         throw new Error('Invalid entity selected.');
     }
-  }
-
-  flattenRowData(data: any, parentKey: string = '', result: any = {}): any {
-    for (const key in data) {
-      if (data.hasOwnProperty(key)) {
-        const fullKey = parentKey ? `${parentKey}__${key}` : key;
-
-        if (typeof data[key] === 'object' && !Array.isArray(data[key]) && data[key] !== null) {
-          // Recursively flatten nested objects
-          this.flattenRowData(data[key], fullKey, result);
-        } else {
-          // Assign primitive values directly
-          result[fullKey] = data[key];
-        }
-      }
-    }
-    return result;
-  }
-
-  generateColDefs(data: any): (ColDef | ColGroupDef)[] {
-    const colDefs: any[] = [];
-
-    const processKey = (key: string, value: any, parentKey: string = '') => {
-      const fullKey = parentKey ? `${parentKey}__${key}` : key;
-
-      if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
-        // Create a group header for nested objects
-        const groupColDef: ColGroupDef = {
-          headerName: this.capitalizeFirstLetter(key),
-          children: [],
-        };
-
-        Object.keys(value).forEach((nestedKey) => {
-          // Push children into the groupColDef's children array
-          const childColDefs = processKey(nestedKey, value[nestedKey], fullKey);
-          groupColDef.children!.push(...(Array.isArray(childColDefs) ? childColDefs : [childColDefs]));
-        });
-
-        return groupColDef; // Return the group column definition
-      } else {
-
-        
-        let filterType: string = 'text'; // Default to text filter
-
-        // Infer filter type based on value type
-        if (typeof value === 'number') {
-          filterType = 'agNumberColumnFilter';
-        } else if (isValidDate(value)) {
-          filterType = 'agDateColumnFilter';
-        } else {
-          filterType = 'agTextColumnFilter';
-        }
-
-        // Create a regular column for primitive values
-        return {
-          field: fullKey,
-          colId: fullKey,
-          filter: filterType,
-          headerName: this.capitalizeFirstLetter(key),
-          filterParams: this.getAdvancedFilterParams(fullKey, filterType),
-        } as ColDef;
-      }
-    };
-
-    Object.keys(data).forEach((key) => {
-      const colDef = processKey(key, data[key]);
-      if (Array.isArray(colDef)) {
-        colDefs.push(...colDef);
-      } else {
-        colDefs.push(colDef);
-      }
-    });
-    return colDefs;
-  }
-
-  capitalizeFirstLetter(str: string): string {
-    str = str.replace('__', ' ').trim();
-    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
   onSearch(grid: GridData): void {
@@ -435,23 +304,6 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   private performSearch(grid: GridData) {
     this.onCollectionChange(grid);
-  }
-
-  getAdvancedFilterParams(fullKey: string, filterType: string): any {
-    let filterOptions: string[] = ['contains', 'equals', 'startsWith', 'endsWith'];
-
-    if (['_id', 'integrationId', 'repositoryId', 'organizationId'].includes(fullKey)) filterOptions = ['equals'];
-
-    if (filterType === 'agNumberColumnFilter') {
-      filterOptions = ["equals", "greaterThan", "lessThan", "inRange"];
-    } else if (filterType === 'agDateColumnFilter') {
-      filterOptions = ["lessThan", "equals", "greaterThan", "inRange"];
-    }
-    return {
-      buttons: ['apply', 'reset'],
-      filterOptions,
-      maxNumConditions: 1
-    };
   }
 
 }

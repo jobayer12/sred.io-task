@@ -38,3 +38,7 @@ export interface ColumnHttpFilterParams {
     type: TypeText | TypeDate | TypeNumber;
     key: string;
 } 
+
+export type ColumnFilter = {
+    [key: string]: ConditionalGridColumnFilter
+  }

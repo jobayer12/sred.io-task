@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from "@angular/common/http";
-import { IServerResponse } from "../models/IServerResponse";
+import { IServerResponse, PaginationReponse } from "../models/IServerResponse";
 import { Observable } from "rxjs";
 import { IGithubRepo } from '../models/IGithubRepo';
 import { IGithubContributor } from '../models/IGithubContributor';
@@ -31,7 +31,7 @@ export class GithubIntegrationService {
     });
   }
 
-  repositories(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<IGithubRepo>>> {
+  repositories(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<IGithubRepo>>  & PaginationReponse> {
     let params = new HttpParams()
       .set('limit', limit || 100)
       .set('page', page || 1)
@@ -54,12 +54,12 @@ export class GithubIntegrationService {
         }
       });
     }
-    return this.http.get<IServerResponse<Array<IGithubRepo>>>(`/api/v1/github/repos`, {
+    return this.http.get<IServerResponse<Array<IGithubRepo>> & PaginationReponse>(`/api/v1/github/repos`, {
       params: params
     });
   }
 
-  pullRequests(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+  pullRequests(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
     let params = new HttpParams()
       .set('limit', limit || 100)
       .set('page', page || 1)
@@ -81,12 +81,12 @@ export class GithubIntegrationService {
         }
       });
     }
-    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/pull-requests`, {
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/pull-requests`, {
       params: params
     });
   }
 
-  commits(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+  commits(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
     let params = new HttpParams()
       .set('limit', limit || 100)
       .set('page', page || 1);
@@ -111,12 +111,12 @@ export class GithubIntegrationService {
         }
       });
     }
-    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/commits`, {
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/commits`, {
       params: params
     });
   }
 
-  issues(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>>> {
+  issues(search: string = '', columnFilters: Array<ColumnHttpFilterParams> = [], limit: number = 100, page: number = 1): Observable<IServerResponse<Array<any>> & PaginationReponse> {
     let params = new HttpParams()
       .set('limit', limit || 100)
       .set('page', page || 1);
@@ -139,7 +139,7 @@ export class GithubIntegrationService {
         }
       });
     }
-    return this.http.get<IServerResponse<Array<any>>>(`/api/v1/github/issues`, {
+    return this.http.get<IServerResponse<Array<any>> & PaginationReponse>(`/api/v1/github/issues`, {
       params: params
     });
   }
