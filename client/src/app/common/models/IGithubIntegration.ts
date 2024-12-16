@@ -1,7 +1,8 @@
-export interface IGithubRemove {
-  success: boolean;
-}
 
+export type IPagination = {
+  limit: number;
+  page: number;
+}
 
 export interface IGithubIntegration {
   _id: string

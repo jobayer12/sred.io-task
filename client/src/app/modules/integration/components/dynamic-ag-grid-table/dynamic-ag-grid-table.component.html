@@ -3,7 +3,9 @@
         <h1>Raw Data</h1>
         <div class="dynamic-table-create-buttons">
             <button mat-raised-button color="primary" (click)="addNewGrid()">New Grid</button>
-            <button mat-raised-button color="primary">New Global Search Grid</button>
+            <button  #triggerButton mat-raised-button color="primary" (click)="addNewGlobalSearchGrid()">
+                New Global Search Grid
+            </button>
         </div>
         <div></div>
     </div>
@@ -25,7 +27,7 @@
                 <p>Entity: </p>
                 <mat-form-field appearance="outline">
                     <mat-label>Projects</mat-label>
-                    <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid, index)">
+                    <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid)">
                         <mat-option *ngFor="let collection of entityCollections" [value]="collection.key">
                             {{collection.label}}
                         </mat-option>
@@ -35,8 +37,8 @@
             <div>
                 <mat-form-field appearance="outline">
                     <mat-label>Search</mat-label>
-                    <input matInput [(ngModel)]="grid.searchText" (keyup)="onSearch(grid)" />
-                  </mat-form-field>
+                    <input matInput [(ngModel)]="grid.searchText" [minlength]="2" (input)="onSearch(grid)" />
+                </mat-form-field>
             </div>
             <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
 
@@ -46,16 +48,15 @@
         </ng-container>
         <!-- AG-Grid -->
         <ng-template #gridContent>
-            <ag-grid-angular
-              class="ag-theme-alpine"
-              [gridOptions]="grid.gridOptions"
-              [columnDefs]="grid.columnDefs"
-              (paginationChanged)="onPaginationChange(grid)"
-              (gridReady)="onGridReady($event, grid)"
-              [style.height.px]="400"
-              [style.width.%]="100"
-            ></ag-grid-angular>
-          </ng-template>
+            <ag-grid-angular class="ag-theme-alpine"
+            [gridOptions]="grid.gridOptions"
+            [columnDefs]="grid.columnDefs"
+            (paginationChanged)="onPaginationChange(grid)"
+            (gridReady)="onGridReady($event, grid)"
+            (filterChanged)="onFilterChanged($event, grid)"
+            [serverSideDatasource]="grid.serverSideDatasource"
+            [style.height.px]="400" [style.width.%]="100"></ag-grid-angular>
+        </ng-template>
     </div>
 
 </div>

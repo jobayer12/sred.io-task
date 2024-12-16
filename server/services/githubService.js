@@ -4,7 +4,7 @@ import Repository from '../models/Repository.js';
 import Commit from '../models/Commit.js';
 import PullRequest from '../models/PullRequest.js';
 import Issue from '../models/Issue.js';
-import { MongooseObjectId } from '../helpers/utils.js';
+import { MongooseObjectId, FormatColumnFilter } from '../helpers/utils.js';
 
 export const processIntegrations = async data => {
     return Integration.findOneAndUpdate(
@@ -37,11 +37,22 @@ export const formatRepositoryFilterParams = (filter = {}) => {
         }
 
         // Dynamic search across all fields
-        if ('search' in filter) {
+        if ('search' in filter && filter.search) {
             // Step 1: Fetch all field names dynamically
-            filterPayload['$text'] = {$search: filter.search};
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
         }
 
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
+        }
     }
     return filterPayload;
 }
@@ -89,7 +100,7 @@ export const findRepositoryById = async _id => {
     return Repository.findOne({ _id });
 }
 
-const formatCommitFilterParams = (filter ={}) => {
+const formatCommitFilterParams = (filter = {}) => {
     const filterPayload = {};
     if (filter) {
         if ('integrationId' in filter) {
@@ -104,9 +115,22 @@ const formatCommitFilterParams = (filter ={}) => {
         }
 
         // Dynamic search across all fields
-        if ('search' in filter) {
+        if ('search' in filter && filter.search) {
             // Step 1: Fetch all field names dynamically
-            filterPayload['$text'] = {$search: filter.search};
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+                console.log('filter: ', filter);
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
         }
     }
     return filterPayload;
@@ -114,7 +138,6 @@ const formatCommitFilterParams = (filter ={}) => {
 
 export const countCommits = async (filter = {}) => {
     try {
-        
         // Get the total count for pagination metadata
         return Commit.countDocuments(formatCommitFilterParams(filter));
     } catch (error) {
@@ -124,7 +147,6 @@ export const countCommits = async (filter = {}) => {
 
 export const findCommits = async (filter = {}, pagination = {}) => {
     try {
-
         const pipeline = [
             { $match: formatCommitFilterParams(filter) }, // Filtering stage
         ];
@@ -147,7 +169,6 @@ export const findCommits = async (filter = {}, pagination = {}) => {
 
 
 export const formatPullRequestFilterParams = (filter = {}) => {
-    console.log('filter: ', filter);
     const filterPayload = {};
     if (filter) {
         if ('integrationId' in filter) {
@@ -163,7 +184,19 @@ export const formatPullRequestFilterParams = (filter = {}) => {
 
         // Dynamic search across all fields
         if ('search' in filter && filter.search) {
-            filterPayload['$text'] = {$search: filter.search};
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
         }
 
     }
@@ -217,8 +250,20 @@ export const formatIssueFilterParams = (filter = {}) => {
         }
 
         // Dynamic search across all fields
-        if ('search' in filter) {
-            filterPayload['$text'] = {$search: filter.search};
+        if ('search' in filter && filter.search) {
+            filterPayload['$text'] = { $search: `"${filter.search.trim()}"`  };
+        }
+
+        if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
+            filter.columnFilters.forEach(filter => {
+                const { type, key, value } = filter;
+          
+                // Format the filter condition using the separate function
+                const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
+                if (formattedCondition) {
+                    filterPayload[key] = formattedCondition;
+                }
+            });
         }
     }
     return filterPayload;
@@ -236,7 +281,6 @@ export const countIssues = async (filter = {}) => {
 
 export const findIssues = async (filter = {}, pagination = {}) => {
     try {
-        console.log('formatIssueFilterParams(filter): ', formatIssueFilterParams(filter));
         const pipeline = [
             { $match: formatIssueFilterParams(filter) }, // Filtering stage
         ];
@@ -330,29 +374,40 @@ export const processOrganizations = async (organizations, integrationId) => {
     }
 };
 
+const sanitizeRepositoryObject = (payload) => {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const sanitized = { ...payload };
+    if (sanitized.language) {
+        sanitized.language_field = sanitized.language
+    }
+    // Remove problematic fields
+    delete sanitized.language_override;
+    delete sanitized.$text;
+    delete sanitized.language; // If this field is present and causes issues
+
+    return sanitized;
+};
+
 export const processRepositories = async (repositories, orgId, integrationId) => {
     try {
         // Use Promise.all to handle DB updates in parallel
         await Promise.all(repositories.map(async (repo) => {
-            const repoId = repo.id;
-            const name = repo.name;
-
-            // Remove unwanted fields from the repository data
-            const { id, name: repoName, ...repoData } = repo;
+            const payload = {
+                repoId: repo.id,
+                name: repo.name,
+                link: repo.html_url,
+                slug: repo.full_name,
+                integrationId,
+                organizationId: orgId,
+                repo: sanitizeRepositoryObject(repo),
+            }
 
             // Insert/update repository data in the database
             return Repository.findOneAndUpdate(
-                { name }, // Find by name (repository name)
-                {
-                    repoId,
-                    name,
-                    link: repo.html_url,
-                    slug: repo.full_name,
-                    integrationId,
-                    organizationId: orgId,
-                    repo: repoData, // Store the repository data
-                },
-                { upsert: true, new: true } // Upsert if not found, return the updated document
+                { repoId: payload.repoId }, // Find by repoId (repository id)
+                payload,
+                { upsert: true, new: true, strict: false } // Upsert if not found, return the updated document
             );
         }));
     } catch (error) {
@@ -370,11 +425,11 @@ export const processCommits = async (commits, integrationId, repositoryId) => {
                     return await Commit.findOneAndUpdate(
                         { sha: commit.sha }, // Find by SHA (unique identifier for commits)
                         {
-                            commit,
+                            commit: commit,
                             integrationId,
                             repositoryId,
                         },
-                        { upsert: true, new: true } // Upsert if not found, return the updated document
+                        { upsert: true, new: true, strict: false } // Upsert if not found, return the updated document
                     );
                 } catch (error) {
                     console.error(`Error processing commit with SHA ${commit.sha}:`, error);
@@ -386,20 +441,41 @@ export const processCommits = async (commits, integrationId, repositoryId) => {
     }
 };
 
+const sanitizePullRequestObject = (payload) => {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const sanitized = { ...payload };
+    if (sanitized.head.repo.language) {        
+        sanitized.head.repo.language_field = sanitized.head.repo.language
+    }
+    if (sanitized.base.repo.language) {        
+        sanitized.base.repo.language_field = sanitized.base.repo.language
+    }
+    // Remove problematic fields
+    
+    delete sanitized.base.repo.language; // If this field is present and causes issues
+    delete sanitized.head.repo.language
+    return sanitized;
+};
+
 export const processPullRequests = async (pulls, integrationId, repositoryId) => {
     try {
         // Use Promise.all to handle DB updates in parallel
         await Promise.all(
             pulls.map(async (pull) => {
+                
                 try {
+
+                    const payload = {
+                        integrationId,
+                        repositoryId,
+                        pull: sanitizePullRequestObject(pull),
+                    }
+
                     // Insert/update repository data in the database
                     return await PullRequest.findOneAndUpdate(
                         { pullRequestId: pull.id }, // Find by pullRequestId (pull request id)
-                        {
-                            pull,
-                            integrationId,
-                            repositoryId,
-                        },
+                        payload,
                         { upsert: true, new: true } // Upsert if not found, return the updated document
                     );
                 } catch (error) {
@@ -422,7 +498,7 @@ export const processIssues = async (issues, integrationId, repositoryId) => {
                     return await Issue.findOneAndUpdate(
                         { issueId: issue.id }, // Find by issueId (unique identifier for issues)
                         {
-                            issue,
+                            issue: issue,
                             integrationId,
                             repositoryId,
                         },

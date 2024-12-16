@@ -9,7 +9,7 @@ const PullRequestSchema = new mongoose.Schema({
         default: Date.now, // Automatically set the timestamp
     },
     pull: {
-        type: Object
+        type: Object,
     },
 });
 

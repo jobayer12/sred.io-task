@@ -70,13 +70,13 @@ export const fetchRepositories = async (accessToken, integrationId, organization
                     page: page, // Pagination
                 });
 
-                if (repositories.length === 0) break; // Exit loop when no more repositories
-
                 // Add fetched repositories to the list
                 repoList.push(...repositories);
 
                 // Process repositories in parallel for DB updates
                 await githubService.processRepositories(repositories, org._id, integrationId);
+
+                if (repositories.length < 100) break; // Exit loop when no more repositories
 
                 page++; // Increment page for pagination
             }

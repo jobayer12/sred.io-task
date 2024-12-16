@@ -10,7 +10,6 @@ const IssueSchema = new mongoose.Schema({
     },
     issue: {
        type: Object,
-       index: { type: 'text' }
     }
 });
 

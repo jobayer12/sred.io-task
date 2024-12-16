@@ -17,6 +17,8 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatPaginatorModule} from '@angular/material/paginator';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { GlobalSearchDialogComponent } from './dialog/global-search-dialog/global-search-dialog.component';
+import { MatDialogModule } from '@angular/material/dialog';
 
 
 
@@ -24,7 +26,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   declarations: [
     GithubIntegrationComponent,
     GithubAuthComponent,
-    DynamicAgGridTableComponent
+    DynamicAgGridTableComponent,
+    GlobalSearchDialogComponent
   ],
   imports: [
     CommonModule,
@@ -42,6 +45,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatPaginatorModule,
     MatInputModule,
     FormsModule,
+    MatDialogModule,
     MatProgressSpinnerModule,
   ],
   providers: [
