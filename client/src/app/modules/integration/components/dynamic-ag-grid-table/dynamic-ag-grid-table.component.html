@@ -12,36 +12,39 @@
     <div *ngFor="let grid of grids; let index=index" class="dynamic-ag-grid-table-list">
         <!-- Dropdowns -->
         <div class="dropdown-section">
-            <div>
-                <p>Active Integrations: </p>
-                <mat-form-field appearance="outline">
-                    <mat-label>Select Integration: </mat-label>
-                    <mat-select [(value)]="grid.integrationId">
-                        <mat-option [value]="grid.integrationId">
-                            {{jwtTokenDetails?.username}}
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
+            <div class="dropdown-left-items">
+                <div>
+                    <p>Active Integrations: </p>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Select Integration: </mat-label>
+                        <mat-select [(value)]="grid.integrationId">
+                            <mat-option [value]="grid.integrationId">
+                                {{jwtTokenDetails?.username}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div>
+                    <p>Entity: </p>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Projects</mat-label>
+                        <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid)">
+                            <mat-option *ngFor="let collection of entityCollections" [value]="collection.key">
+                                {{collection.label}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
             </div>
-            <div>
-                <p>Entity: </p>
-                <mat-form-field appearance="outline">
-                    <mat-label>Projects</mat-label>
-                    <mat-select [(value)]="grid.collection" (selectionChange)="onCollectionChange(grid)">
-                        <mat-option *ngFor="let collection of entityCollections" [value]="collection.key">
-                            {{collection.label}}
-                        </mat-option>
-                    </mat-select>
-                </mat-form-field>
+            <div class="dropdown-right-items">
+                <div>
+                    <mat-form-field appearance="outline">
+                        <mat-label>Search</mat-label>
+                        <input matInput [(ngModel)]="grid.searchText" [minlength]="2" (input)="onSearch(grid)" />
+                    </mat-form-field>
+                </div>
+                <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
             </div>
-            <div>
-                <mat-form-field appearance="outline">
-                    <mat-label>Search</mat-label>
-                    <input matInput [(ngModel)]="grid.searchText" [minlength]="2" (input)="onSearch(grid)" />
-                </mat-form-field>
-            </div>
-            <button color="warn" mat-raised-button (click)="deleteGrid(index)">Delete Grid</button>
-
         </div>
         <ng-container *ngIf="isLoading[grid.id]; else gridContent">
             <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
