@@ -143,7 +143,7 @@ export const fetchRepositories = async (req, res) => {
         }
         limit = Math.min(parseInt(limit, 10) || DEFAULT_LIMIT, MAX_LIMIT);
         page = Math.max(parseInt(page, 10) || DEFAULT_PAGE, 1);
-        const filter = {integrationId: integration._id, search, columnFilters};
+        const filter = {...req.query, integrationId: integration._id, search, columnFilters};
         const results = await githubService.fetchRepositories(filter, {limit, page});
         const totalCount = await githubService.countRepositories(filter);
 
@@ -243,7 +243,7 @@ export const fetchPullRequests = async (req, res) => {
             response.error = "Unauthorized access.";
             return res.status(401).json(response);
         }
-        const filter = {integrationId: integrationId, search, columnFilters};
+        const filter = {...req.query, integrationId: integrationId, search, columnFilters};
         const results = await githubService.findPullRequests(filter, {limit, page});
         const totalCount = await githubService.countPullRequests(filter);
 
@@ -282,7 +282,7 @@ export const fetchCommits = async (req, res) => {
             return res.status(401).json(response);
         }
 
-        const filter = {integrationId: integrationId, search, columnFilters};
+        const filter = {...req.query, integrationId: integrationId, search, columnFilters};
 
         // Fetch paginated commits
         const results = await githubService.findCommits(filter, { limit, page });
@@ -323,7 +323,7 @@ export const fetchIssues = async (req, res) => {
             return res.status(401).json(response);
         }
 
-        const filter = {integrationId: integrationId, search, columnFilters};
+        const filter = {...req.query, integrationId: integrationId, search, columnFilters};
 
         // Fetch paginated commits
         const results = await githubService.findIssues(filter, { limit, page });

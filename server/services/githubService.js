@@ -123,8 +123,6 @@ const formatCommitFilterParams = (filter = {}) => {
         if ('columnFilters' in filter && Array.isArray(filter.columnFilters) && filter.columnFilters.length > 0) {
             filter.columnFilters.forEach(filter => {
                 const { type, key, value } = filter;
-                console.log('filter: ', filter);
-          
                 // Format the filter condition using the separate function
                 const formattedCondition = FormatColumnFilter(filter.filterType, key, type, value);
                 if (formattedCondition) {

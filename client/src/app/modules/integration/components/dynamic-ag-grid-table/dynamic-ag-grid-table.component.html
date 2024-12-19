@@ -57,6 +57,7 @@
             (paginationChanged)="onPaginationChange(grid)"
             (gridReady)="onGridReady($event, grid)"
             (filterChanged)="onFilterChanged($event, grid)"
+            (cellClicked)="onCellClicked($event, grid)"
             [serverSideDatasource]="grid.serverSideDatasource"
             [style.height.px]="400" [style.width.%]="100"></ag-grid-angular>
         </ng-template>

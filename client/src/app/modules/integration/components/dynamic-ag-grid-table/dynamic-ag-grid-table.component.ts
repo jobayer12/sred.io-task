@@ -12,6 +12,7 @@ import {
   IServerSideGetRowsParams,
   ModuleRegistry,
   FilterChangedEvent,
+  CellClickedEvent,
   
 } from 'ag-grid-community';
 import { ToastrService } from 'ngx-toastr';
@@ -28,26 +29,13 @@ import {
 } from 'ag-grid-enterprise';
 
 import { FlattenRowData, GenerateColDef, ProcessColumnFilter } from '../../../../common/utils/utils'
-import { ColumnFilter, ColumnHttpFilterParams } from '../../../../common/models/IAgGridColumnFilter';
+import { ColumnHttpFilterParams, ConditionalGridColumnFilter } from '../../../../common/models/IAgGridColumnFilter';
+import { CollectionType, GridData } from '../../../../common/models/IAgGrid';
 
 ModuleRegistry.registerModules([
   SetFilterModule,
   ServerSideRowModelModule,
 ]);
-
-type CollectionType = 'projects' | 'commits' | 'pull-requests' | 'issues';
-
-type GridData = {
-  id: number;
-  integrationId: string | undefined;
-  columnDefs: Array<ColDef | ColGroupDef>;
-  searchText: string,
-  gridOptions: GridOptions,
-  collection: CollectionType | null,
-  pagination: IPagination;
-  serverSideDatasource?: IServerSideDatasource | undefined;
-  columnFilters: ColumnFilter | null
-}
 
 @Component({
   selector: 'app-dynamic-ag-grid-table',
@@ -98,6 +86,8 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   private searchSubject = new Subject<{search: string, grid: GridData}>();
   private searchObservable$!: Observable<{search: string, grid: GridData}>;
+
+  gridCounter = 0;
 
   constructor(
     private readonly githubIntegrationService: GithubIntegrationService,
@@ -152,7 +142,7 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   get defaultColDef(): (ColDef | ColGroupDef) {
     return {
-      sortable: true,
+      sortable: false,
       filter: true,
       resizable: true,
     }
@@ -175,7 +165,7 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   addNewGrid() {
     const newGrid: GridData = {
-      id: this.grids.length,
+      id: this.gridCounter++,
       columnDefs: [],
       gridOptions: this.gridOptions,
       integrationId: this.jwtTokenDetails?.id,
@@ -190,6 +180,7 @@ export class DynamicAgGridTableComponent implements OnInit {
   // Delete a specific grid by index
   deleteGrid(index: number) {
     this.grids.splice(index, 1);
+    console.log('this.grids: ', this.grids);
   }
 
   resetFilterModel(grid: GridData): void {
@@ -209,7 +200,7 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   private validateCollection(grid: GridData): boolean {
     if (!grid.collection) {
-      this.toastrService.error('Collection is not selected.');
+      this.toastrService.error('Entity is not selected.');
       return false;
     }
     return true;
@@ -227,7 +218,7 @@ export class DynamicAgGridTableComponent implements OnInit {
           (response) => {
             const { data, pagination } = response; // API response structure
             if (data.length > 0) {
-              grid.columnDefs = GenerateColDef(data[0]);
+              grid.columnDefs = GenerateColDef(data[0], grid);
             }
             setTimeout(() => {
               params.success({
@@ -304,6 +295,66 @@ export class DynamicAgGridTableComponent implements OnInit {
 
   private performSearch(grid: GridData) {
     this.onCollectionChange(grid);
+  }
+
+  defaultrepositoryIdFilterParams(value: string): ConditionalGridColumnFilter {
+    return {
+      filter: value,
+      filterType: 'text',
+      type: 'equals'
+    }
+  }
+
+  onCellClicked(cellClicked: CellClickedEvent, grid: GridData): void {
+    if (!grid.collection) return;
+    if (cellClicked?.colDef?.colId !== '_id' && cellClicked?.colDef?.colId !== 'repositoryId' && cellClicked?.colDef?.colId !== 'integrationId') return;
+    const entitys = this.linkedWithEntity(grid, cellClicked.colDef.colId);
+    const remainingEntitys: string[] = [];
+    const colKey = grid.collection === 'projects' && cellClicked.colDef.colId === '_id' ? 'repositoryId' : cellClicked.colDef.colId;
+    entitys.forEach((entity, index) => {
+      const grid = this.grids.find(grid => entity === grid.collection);
+      if (grid) {
+        this.grids[grid.id].columnFilters = {
+          [`${colKey}`]: this.defaultrepositoryIdFilterParams(cellClicked.value)
+        },
+        this.gridApis[grid.id]?.gridApi?.setFilterModel(null);
+        this.defaultrepositoryIdFilterParams(cellClicked.value);
+        this.grids[grid.id].searchText = '';
+        this.onCollectionChange(this.grids[grid.id]);
+      } else {
+        remainingEntitys.push(entity);
+      }
+    });
+
+    if (remainingEntitys.length > 0) {
+      const grids = remainingEntitys.map((entity, index) => {
+        return {
+          id: this.gridCounter++,
+          columnDefs: [],
+          gridOptions: this.gridOptions,
+          integrationId: this.jwtTokenDetails?.id,
+          searchText: this.globalSearchText,
+          collection: entity,
+          pagination: this.defaultPagination,
+          columnFilters:  {
+            [`${colKey}`]: this.defaultrepositoryIdFilterParams(cellClicked.value)
+          }
+        } as GridData
+      });
+      this.grids.push(...grids);
+      grids.forEach(grid => this.onCollectionChange(grid));
+
+    }
+
+  }  
+
+  linkedWithEntity(grid: GridData, colId: string): CollectionType[] {
+    if (grid.collection !== 'projects' && colId === '_id') return [];
+    if (grid.collection === 'projects') return  ['pull-requests', 'commits', 'issues'];
+    if (grid.collection === 'commits') return ['pull-requests', 'issues'];
+    if (grid.collection === 'issues') return ['pull-requests', 'commits'];
+    if (grid.collection === 'pull-requests') return ['commits', 'issues']; 
+    return [];
   }
 
 }

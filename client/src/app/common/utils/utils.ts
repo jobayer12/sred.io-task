@@ -1,11 +1,12 @@
-import { ColDef, ColGroupDef } from "ag-grid-community";
+import { CellClassParams, CellStyle, ColDef, ColGroupDef } from "ag-grid-community";
 import { ColumnFilter, ColumnHttpFilterParams, ConditionalGridColumnFilter } from "../models/IAgGridColumnFilter";
+import { GridData } from "../models/IAgGrid";
 
 export const isValidDate = (value: any): boolean => {
     const date = new Date(value);
     return !isNaN(date.getTime());
   }
-export const GenerateColDef = (data: any): Array<ColDef | ColGroupDef> => {
+export const GenerateColDef = (data: any, grid: GridData): Array<ColDef | ColGroupDef> => {
   const colDefs: any[] = [];
 
   const processKey = (key: string, value: any, parentKey: string = '') => {
@@ -44,6 +45,7 @@ export const GenerateColDef = (data: any): Array<ColDef | ColGroupDef> => {
         field: fullKey,
         colId: fullKey,
         filter: filterType,
+        cellStyle: params => gridCellStyle(params, grid),
         headerName: capitalizeFirstLetter(key),
         filterParams: getAdvancedFilterParams(fullKey, filterType),
       } as ColDef;
@@ -60,6 +62,21 @@ export const GenerateColDef = (data: any): Array<ColDef | ColGroupDef> => {
   });
   return colDefs;
 }
+
+export const gridCellStyle = (params: CellClassParams, grid: GridData): CellStyle | null | undefined => {
+  if (
+    (
+      grid.collection === 'projects' && params.colDef.colId === '_id'
+    ) || params.colDef.colId === 'integrationId' || params.colDef.colId === 'repositoryId'
+  ) return hyperLinkCellStyle;
+  return null;
+}
+
+const hyperLinkCellStyle = {
+  color: 'blue',
+  textDecoration: 'underline',
+  cursor: 'pointer',
+};
 
 export const capitalizeFirstLetter = (str: string): string => {
   str = str.replace('__', ' ').trim();
